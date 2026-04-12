@@ -4,7 +4,16 @@
 
 import numpy as np
 import pandas as pd
-from scipy.stats import percentileofscore
+
+
+def _percentileofscore(a: np.ndarray, score: float) -> float:
+    """numpy replacement for scipy.stats.percentileofscore(kind='rank')"""
+    n = len(a)
+    if n == 0:
+        return np.nan
+    left  = np.count_nonzero(a < score)
+    right = np.count_nonzero(a <= score)
+    return (left + right + (1 if right > left else 0)) / (2 * n) * 100
 
 from config import (
     BATTING_CATEGORIES,
@@ -47,7 +56,7 @@ def compute_pr(
     if len(clean_values) == 0:
         return np.nan
 
-    pr = percentileofscore(clean_values, player_value, kind="rank")
+    pr = _percentileofscore(clean_values, player_value)
 
     # ERA/WHIP 等：越低 PR 越高
     if lower_is_better:
