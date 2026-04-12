@@ -1,0 +1,30 @@
+{
+  "name": "roster1",
+  "saved_at": "2026-04-11T21:34:49",
+  "batters": [
+    "S Otani",
+    "K Marte",
+    "M Olson",
+    "A Riley",
+    "M Garcia",
+    "C Delauter",
+    "A Pages",
+    "J Walker",
+    "J Wood",
+    "J Wetherholt"
+  ],
+  "pitchers": [
+    "Shohei Otani",
+    "Tyler Rogers",
+    "Tatsuya Imai",
+    "E Hancock",
+    "D Bednar",
+    "A Uribe",
+    "G Kirby",
+    "MacKenzie Gore",
+    "D Cease",
+    "C Schlittler",
+    "Y Yamamoto",
+    "J Soriano"
+  ]
+}

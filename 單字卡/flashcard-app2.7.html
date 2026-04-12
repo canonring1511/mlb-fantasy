@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="單字卡">
+<title>單字卡學習</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #f5f5f0; min-height: 100vh; }
+:root {
+  --accent: #1D9E75; --accent-light: #E1F5EE; --accent-dark: #0F6E56;
+  --danger: #D85A30; --danger-light: #FAECE7;
+  --warn: #BA7517; --warn-light: #FAEEDA;
+  --purple: #534AB7; --purple-light: #EEEDFE;
+  --bg: #f5f5f0; --surface: #ffffff;
+  --border: rgba(0,0,0,0.1); --text: #1a1a1a; --text2: #666; --text3: #999;
+  --radius: 12px; --radius-lg: 16px;
+}
+#app { max-width: 430px; margin: 0 auto; min-height: 100vh; background: var(--bg); }
+.screen { display: none; padding: 0 1rem 3rem; }
+.screen.active { display: block; }
+.top-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1rem 0.75rem;
+  position: sticky; top: 0; background: var(--bg); z-index: 10;
+}
+.top-bar h2 { font-size: 17px; font-weight: 600; color: var(--text); }
+.icon-btn {
+  background: var(--surface); border: 0.5px solid var(--border);
+  border-radius: 50%; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; color: var(--text2);
+}
+.icon-btn:active { transform: scale(0.92); background: #eee; }
+
+.lang-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem; }
+.lang-card {
+  background: var(--surface); border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+  cursor: pointer; display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+.lang-card:active { transform: scale(0.98); }
+.lang-flag { font-size: 28px; }
+.lang-info { flex: 1; }
+.lang-name { font-size: 16px; font-weight: 600; color: var(--text); }
+.lang-meta { font-size: 12px; color: var(--text3); margin-top: 3px; }
+.lang-badges { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+.badge-due { background: var(--accent-light); color: var(--accent-dark); }
+.badge-cat { background: var(--purple-light); color: var(--purple); }
+.lang-arrow { color: var(--text3); font-size: 18px; }
+
+.action-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+.btn-primary {
+  flex: 1; background: var(--accent); color: white; border: none;
+  border-radius: var(--radius); padding: 13px;
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.btn-primary:active { background: var(--accent-dark); transform: scale(0.98); }
+.btn-secondary {
+  flex: 1; background: var(--surface); color: var(--purple); border: 1.5px solid var(--purple);
+  border-radius: var(--radius); padding: 13px;
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.btn-secondary:active { background: var(--purple-light); transform: scale(0.98); }
+.btn-ghost {
+  flex: 1; background: var(--surface); color: var(--text2);
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  padding: 13px; font-size: 14px; cursor: pointer; font-family: inherit;
+}
+.btn-ghost:active { background: #eee; }
+
+.filter-tabs { display: flex; gap: 6px; margin-bottom: 0.75rem; overflow-x: auto; padding-bottom: 2px; }
+.filter-tabs::-webkit-scrollbar { display: none; }
+.tab-btn {
+  background: var(--surface); border: 0.5px solid var(--border);
+  border-radius: 20px; padding: 5px 14px; font-size: 13px; white-space: nowrap;
+  cursor: pointer; color: var(--text2); font-family: inherit;
+}
+.tab-btn.active { background: var(--text); color: white; border-color: var(--text); }
+.tab-btn:active { transform: scale(0.95); }
+
+.section-card { background: var(--surface); border-radius: var(--radius-lg); padding: 0 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.05); margin-bottom: 1rem; }
+.word-item { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 0.5px solid var(--border); }
+.word-item:last-child { border-bottom: none; }
+.word-info { flex: 1; min-width: 0; }
+.word-front { font-size: 15px; font-weight: 500; color: var(--text); }
+.word-back { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.word-cat { font-size: 11px; color: var(--purple); background: var(--purple-light); padding: 1px 7px; border-radius: 10px; display: inline-block; margin-top: 3px; }
+.mastered-icon { font-size: 18px; cursor: pointer; padding: 4px; flex-shrink: 0; }
+.mastered-icon:active { transform: scale(0.85); }
+.word-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 17px; padding: 6px; flex-shrink: 0; }
+.word-del:active { color: var(--danger); }
+
+.form-section { margin-bottom: 1rem; }
+.form-label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 12px 14px;
+  background: var(--surface); border: 0.5px solid var(--border);
+  border-radius: var(--radius); font-size: 16px; color: var(--text);
+  font-family: inherit; outline: none; -webkit-appearance: none;
+}
+.form-input:focus, .form-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(29,158,117,0.12); }
+.form-textarea { resize: none; min-height: 70px; line-height: 1.5; }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.toggle-label { font-size: 15px; color: var(--text); }
+.toggle-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.toggle { width: 44px; height: 26px; background: #ddd; border-radius: 13px; position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+.toggle.on { background: var(--accent); }
+.toggle::after { content: ''; position: absolute; width: 22px; height: 22px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.toggle.on::after { transform: translateX(18px); }
+
+.btn-row { display: flex; gap: 10px; margin-top: 0.5rem; }
+
+.count-picker { background: var(--surface); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; box-shadow: 0 1px 8px rgba(0,0,0,0.08); margin-bottom: 1rem; }
+.count-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.count-sub { font-size: 13px; color: var(--text3); margin-bottom: 1.5rem; }
+.count-stepper { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 1.5rem; }
+.count-btn { width: 44px; height: 44px; border-radius: 50%; border: 0.5px solid var(--border); background: var(--surface); font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text); font-family: inherit; }
+.count-btn:active { background: #eee; transform: scale(0.92); }
+.count-num { font-size: 40px; font-weight: 700; color: var(--text); min-width: 60px; text-align: center; }
+.count-presets { display: flex; gap: 8px; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.preset-btn { background: none; border: 0.5px solid var(--border); border-radius: 20px; padding: 6px 16px; font-size: 13px; cursor: pointer; color: var(--text2); font-family: inherit; }
+.preset-btn:active { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); }
+
+.study-header { margin-bottom: 1rem; }
+.progress-bar { height: 5px; background: rgba(0,0,0,0.08); border-radius: 3px; margin-bottom: 6px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.35s; }
+.progress-label { font-size: 12px; color: var(--text3); text-align: right; }
+
+.flashcard-wrap { perspective: 1000px; height: 230px; margin-bottom: 1.25rem; cursor: pointer; user-select: none; }
+.flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.45s cubic-bezier(.4,0,.2,1); }
+.flashcard.flipped { transform: rotateY(180deg); }
+.card-face {
+  position: absolute; inset: 0; background: var(--surface);
+  border: 0.5px solid var(--border); border-radius: 20px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 1.5rem; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+}
+.card-face.back { transform: rotateY(180deg); }
+.card-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 0.75rem; }
+.card-word { font-size: 30px; font-weight: 600; color: var(--text); text-align: center; margin-bottom: 6px; }
+.card-reading { font-size: 15px; color: var(--text2); margin-bottom: 6px; }
+.card-example { font-size: 13px; color: var(--text2); text-align: center; line-height: 1.6; }
+.card-hint { font-size: 12px; color: var(--text3); margin-top: 8px; }
+.card-cat-badge { font-size: 11px; color: var(--purple); background: var(--purple-light); padding: 2px 10px; border-radius: 10px; margin-bottom: 8px; }
+
+.rating-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 0.75rem; }
+.rating-btn {
+  border: 0.5px solid var(--border); background: var(--surface);
+  border-radius: var(--radius); padding: 12px 0;
+  cursor: pointer; font-size: 13px; font-weight: 600; line-height: 1.5; font-family: inherit;
+}
+.rating-btn:active { transform: scale(0.96); }
+.rating-btn.hard { color: var(--danger); }
+.rating-btn.hard:active { background: var(--danger-light); }
+.rating-btn.ok { color: var(--warn); }
+.rating-btn.ok:active { background: var(--warn-light); }
+.rating-btn.easy { color: var(--accent-dark); }
+.rating-btn.easy:active { background: var(--accent-light); }
+
+.reveal-btn {
+  width: 100%; background: var(--accent); border: none;
+  border-radius: var(--radius); padding: 15px;
+  color: white; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.reveal-btn:active { background: var(--accent-dark); }
+
+.done-box { text-align: center; padding: 2rem 0.5rem; }
+.done-emoji { font-size: 48px; margin-bottom: 1rem; }
+.done-title { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 0.5rem; }
+.done-sub { font-size: 14px; color: var(--text2); margin-bottom: 1.5rem; line-height: 1.7; }
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 1.5rem; }
+.stat-box { background: var(--surface); border-radius: var(--radius); padding: 14px 8px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+.stat-num { font-size: 26px; font-weight: 700; }
+.stat-lbl { font-size: 12px; color: var(--text3); margin-top: 3px; }
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text3); font-size: 14px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HOME -->
+<div id="home" class="screen active">
+  <div class="top-bar" style="padding-top: max(1rem, env(safe-area-inset-top))">
+    <h2>📖 單字卡學習</h2>
+    <div style="width:36px"></div>
+  </div>
+  <div class="lang-list" id="lang-list"></div>
+</div>
+
+<!-- DECK VIEW -->
+<div id="deck-view" class="screen">
+  <div class="top-bar" style="padding-top: max(1rem, env(safe-area-inset-top))">
+    <button class="icon-btn" onclick="goto('home')">←</button>
+    <h2 id="deck-view-title"></h2>
+    <button class="icon-btn" onclick="goto('add-card')">＋</button>
+  </div>
+  <div class="action-row">
+    <button class="btn-primary" id="study-btn" onclick="startStudy()">複習</button>
+    <button class="btn-secondary" onclick="goto('practice-setup')">練習</button>
+  </div>
+  <div class="filter-tabs" id="filter-tabs"></div>
+  <div class="section-card" id="word-list-container"></div>
+</div>
+
+<!--匯入 匯出-->
+<div class="action-row" style="margin-top: 20px; padding: 0 10px;">
+  <button class="btn-ghost" onclick="exportData()">📤 備份資料 (匯出)</button>
+  <button class="btn-ghost" onclick="importData()">📥 還原資料 (匯入)</button>
+</div>
+<input type="file" id="import-file" style="display:none" onchange="handleImport(this)">
+
+<div class="action-row" style="margin-top: 20px; padding: 0 10px; flex-direction: column;">
+  <button class="btn-ghost" onclick="exportData()" style="margin-bottom: 8px;">📤 備份資料 (匯出 JSON)</button>
+  <button class="btn-ghost" onclick="importData()">📥 還原資料 (匯入 JSON)</button>
+</div>
+<input type="file" id="import-file" style="display:none" onchange="handleImport(this)">
+
+<!-- ADD CARD -->
+<div id="add-card" class="screen">
+  <div class="top-bar" style="padding-top: max(1rem, env(safe-area-inset-top))">
+    <button class="icon-btn" onclick="goto('deck-view')">←</button>
+    <h2>新增單字卡</h2>
+    <div style="width:36px"></div>
+  </div>
+  <div class="form-section">
+    <label class="form-label">正面（單字）</label>
+    <input id="card-front" class="form-input" type="text" placeholder="例：mangiare">
+  </div>
+  <div class="form-section">
+    <label class="form-label">背面（意思）</label>
+    <input id="card-back" class="form-input" type="text" placeholder="例：吃">
+  </div>
+  <div class="form-section">
+    <label class="form-label">讀音（選填）</label>
+    <input id="card-reading" class="form-input" type="text" placeholder="例：たべる">
+  </div>
+  <div class="form-section">
+    <label class="form-label">類別</label>
+    <input id="card-category" class="form-input" type="text" placeholder="例：動詞、食物、日常用語…">
+  </div>
+  <div class="form-section">
+    <label class="form-label">例句（選填）</label>
+    <textarea id="card-example" class="form-textarea" placeholder="例：Voglio mangiare la pizza."></textarea>
+  </div>
+  <div class="form-section">
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">已經會了</div>
+        <div class="toggle-sub">開啟後不會出現在複習與練習中</div>
+      </div>
+      <div class="toggle" id="add-mastered-toggle" onclick="this.classList.toggle('on')"></div>
+    </div>
+  </div>
+  <div class="btn-row">
+  <button class="btn-ghost" onclick="goto('deck-view')">取消</button>
+  <button id="submit-card-btn" class="btn-primary" onclick="addCard()">新增</button>
+</div>
+</div>
+
+<!-- PRACTICE SETUP -->
+<div id="practice-setup" class="screen">
+  <div class="top-bar" style="padding-top: max(1rem, env(safe-area-inset-top))">
+    <button class="icon-btn" onclick="goto('deck-view')">←</button>
+    <h2>練習設定</h2>
+    <div style="width:36px"></div>
+  </div>
+  <div class="count-picker">
+    <div class="count-title">要練習幾張？</div>
+    <div class="count-sub" id="practice-available"></div>
+    <div class="count-stepper">
+      <button class="count-btn" onclick="adjustCount(-1)">−</button>
+      <div class="count-num" id="practice-count-display">10</div>
+      <button class="count-btn" onclick="adjustCount(1)">＋</button>
+    </div>
+    <div class="count-presets">
+      <button class="preset-btn" onclick="setCount(5)">5 張</button>
+      <button class="preset-btn" onclick="setCount(10)">10 張</button>
+      <button class="preset-btn" onclick="setCount(20)">20 張</button>
+      <button class="preset-btn" onclick="setCountAll()">全部</button>
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="startPractice()">開始練習</button>
+  </div>
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1rem 1.25rem;font-size:13px;color:var(--text2);line-height:1.7;">
+    💡 練習模式會從未標記「已經會了」的單字卡中隨機選取指定數量，讓你專注練習還不熟的單字。
+  </div>
+</div>
+
+<!-- STUDY / PRACTICE -->
+<div id="study" class="screen">
+  <div class="top-bar" style="padding-top: max(1rem, env(safe-area-inset-top))">
+    <button class="icon-btn" onclick="goto('deck-view')">←</button>
+    <h2 id="study-mode-title"></h2>
+    <div style="width:36px"></div>
+  </div>
+  <div class="study-header">
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label"></div>
+  </div>
+  <div class="flashcard-wrap" onclick="flipCard()">
+    <div class="flashcard" id="flashcard">
+      <div class="card-face front">
+        <div class="card-label">單字</div>
+        <div class="card-cat-badge" id="card-cat-badge" style="display:none"></div>
+        <div class="card-word" id="card-front-word"></div>
+        <div class="card-hint">點擊翻面</div>
+      </div>
+      <div class="card-face back">
+        <div class="card-label">意思</div>
+        <div class="card-word" id="card-back-meaning" style="font-size:24px"></div>
+        <div class="card-reading" id="card-back-reading"></div>
+        <div class="card-example" id="card-back-example"></div>
+      </div>
+    </div>
+  </div>
+  <div id="reveal-area">
+    <button class="reveal-btn" onclick="revealCard()">顯示答案</button>
+  </div>
+  <div id="rating-area" style="display:none">
+    <div class="rating-row">
+      <button class="rating-btn hard" onclick="rateCard(1)">😓 困難<br><span style="font-size:11px;font-weight:400">再學一次</span></button>
+      <button class="rating-btn ok" onclick="rateCard(3)">🤔 普通<br><span style="font-size:11px;font-weight:400">明天複習</span></button>
+      <button class="rating-btn easy" onclick="rateCard(5)">😄 容易<br><span style="font-size:11px;font-weight:400">3天後</span></button>
+    </div>
+    <button id="mark-mastered-btn" style="width:100%;background:none;border:0.5px solid var(--border);border-radius:var(--radius);padding:11px;font-size:13px;color:var(--accent-dark);cursor:pointer;font-family:inherit;margin-top:0;" onclick="markMasteredCurrent()">✓ 標記「已經會了」，不再出現</button>
+  </div>
+</div>
+
+<!-- DONE -->
+<div id="done" class="screen">
+  <div class="top-bar" style="padding-top: max(1rem, env(safe-area-inset-top))">
+    <button class="icon-btn" onclick="goto('home')">←</button>
+    <h2>完成</h2>
+    <div style="width:36px"></div>
+  </div>
+  <div class="done-box">
+    <div class="done-emoji" id="done-emoji">🎉</div>
+    <div class="done-title" id="done-title">太棒了！</div>
+    <div class="done-sub" id="done-sub"></div>
+    <div class="stats-row" id="done-stats"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-ghost" onclick="goto('deck-view')">回牌組</button>
+      <button class="btn-primary" onclick="goto('home')">回首頁</button>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+const LANGS = [
+  { id: 'de', name: '德文', flag: '🇩🇪' },
+  { id: 'es', name: '西班牙文', flag: '🇪🇸' },
+  { id: 'it', name: '義大利文', flag: '🇮🇹' },
+  { id: 'fr', name: '法文', flag: '🇫🇷' },
+  { id: 'ja', name: '日文', flag: '🇯🇵' },
+];
+
+let cards = JSON.parse(localStorage.getItem('fc2_cards') || '{}');
+let currentLangId = null;
+let studyQueue = [];
+let studyIdx = 0;
+let studyStats = { easy: 0, ok: 0, hard: 0 };
+let isFlipped = false;
+let currentFilter = 'all';
+let practiceCount = 10;
+let isPracticeMode = false;
+let editIndex = null; 
+
+// 📤 匯出資料：將 LocalStorage 的資料轉成 .json 檔下載
+function exportData() {
+  const dataStr = localStorage.getItem('fc2_cards');
+  if (!dataStr || dataStr === '{}') {
+    alert('目前沒有卡片資料可以備份喔！');
+    return;
+  }
+  
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  
+  // 檔名加上今天的日期，方便辨識
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `flashcard_backup_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 📥 還原資料：觸發檔案選擇器
+function importData() {
+  if (confirm('匯入將會覆蓋現有的所有卡片，確定要繼續嗎？')) {
+    document.getElementById('import-file').click();
+  }
+}
+
+// 處理匯入的檔案內容
+function handleImport(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const importedData = JSON.parse(e.target.result);
+      // 簡單檢查格式是否正確
+      if (typeof importedData === 'object') {
+        cards = importedData;
+        save();
+        alert('資料還原成功！');
+        location.reload(); // 重新整理頁面以套用新資料
+      }
+    } catch (err) {
+      alert('檔案格式錯誤，請確保選擇的是正確的備份檔。');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function save() {
+  try { localStorage.setItem('fc2_cards', JSON.stringify(cards)); } catch(e) {}
+}
+
+function getCards(langId) { return cards[langId] || []; }
+
+function getDue(langId) {
+  const now = Date.now();
+  return getCards(langId).filter(c => !c.mastered && (!c.nextReview || c.nextReview <= now)).length;
+}
+
+function getCategories(langId) {
+  const cats = new Set();
+  getCards(langId).forEach(c => { if (c.category) cats.add(c.category); });
+  return [...cats];
+}
+
+function goto(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screen).classList.add('active');
+  window.scrollTo(0, 0);
+  if (screen === 'home') renderHome();
+  if (screen === 'deck-view') renderDeckView();
+  if (screen === 'practice-setup') renderPracticeSetup();
+}
+
+function renderHome() {
+  const list = document.getElementById('lang-list');
+  list.innerHTML = LANGS.map(lang => {
+    const total = getCards(lang.id).length;
+    const due = getDue(lang.id);
+    const mastered = getCards(lang.id).filter(c => c.mastered).length;
+    const cats = getCategories(lang.id);
+    return `<div class="lang-card" onclick="openDeck('${lang.id}')">
+      <div class="lang-flag">${lang.flag}</div>
+      <div class="lang-info">
+        <div class="lang-name">${lang.name}</div>
+        <div class="lang-meta">${total} 張單字卡 · ${mastered} 已掌握</div>
+        <div class="lang-badges">
+          ${due > 0 ? `<span class="badge badge-due">${due} 待複習</span>` : ''}
+          ${cats.slice(0,3).map(c => `<span class="badge badge-cat">${c}</span>`).join('')}
+        </div>
+      </div>
+      <div class="lang-arrow">›</div>
+    </div>`;
+  }).join('');
+}
+
+function openDeck(langId) {
+  currentLangId = langId;
+  currentFilter = 'all';
+  goto('deck-view');
+}
+
+function renderDeckView() {
+  if (!currentLangId) return;
+  const lang = LANGS.find(l => l.id === currentLangId);
+  document.getElementById('deck-view-title').textContent = lang.flag + ' ' + lang.name;
+  const due = getDue(currentLangId);
+  document.getElementById('study-btn').textContent = due > 0 ? `複習（${due}）` : '複習';
+
+  const cats = getCategories(currentLangId);
+  const tabsEl = document.getElementById('filter-tabs');
+  tabsEl.innerHTML = [
+    `<button class="tab-btn ${currentFilter==='all'?'active':''}" onclick="setFilter('all')">全部</button>`,
+    `<button class="tab-btn ${currentFilter==='active'?'active':''}" onclick="setFilter('active')">未掌握</button>`,
+    `<button class="tab-btn ${currentFilter==='mastered'?'active':''}" onclick="setFilter('mastered')">已掌握</button>`,
+    ...cats.map(c => `<button class="tab-btn ${currentFilter===c?'active':''}" onclick="setFilter('${c.replace(/'/g,"\\'")}')">${c}</button>`)
+  ].join('');
+
+  const allCards = getCards(currentLangId);
+  let filtered = allCards;
+  if (currentFilter === 'active') filtered = allCards.filter(c => !c.mastered);
+  else if (currentFilter === 'mastered') filtered = allCards.filter(c => c.mastered);
+  else if (currentFilter !== 'all') filtered = allCards.filter(c => c.category === currentFilter);
+
+  const container = document.getElementById('word-list-container');
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty-state">沒有單字卡<br>點擊右上角 ＋ 新增</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(c => {
+    const realIdx = allCards.indexOf(c);
+    return `<div class="word-item" onclick="editCard(${realIdx})">
+      <div class="word-info">
+        <div class="word-front">${c.front}</div>
+        <div class="word-back">${c.back}${c.reading ? ' · ' + c.reading : ''}</div>
+        ${c.category ? `<span class="word-cat">${c.category}</span>` : ''}
+      </div>
+      <div class="mastered-icon" onclick="event.stopPropagation(); toggleCardMastered(${realIdx})">${c.mastered ? '✅' : '⬜'}</div>
+      <button class="word-del" onclick="event.stopPropagation(); deleteCard(${realIdx})"><button class="word-del" onclick="deleteCard(${realIdx})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function setFilter(f) { currentFilter = f; renderDeckView(); }
+
+function addCard() {
+  const front = document.getElementById('card-front').value.trim();
+  const back = document.getElementById('card-back').value.trim();
+  if (!front || !back) return;
+  if (!cards[currentLangId]) cards[currentLangId] = [];
+  const newData = {
+  front, back,
+  reading: document.getElementById('card-reading').value.trim(),
+  category: document.getElementById('card-category').value.trim(),
+  example: document.getElementById('card-example').value.trim(),
+  mastered: document.getElementById('add-mastered-toggle').classList.contains('on'),
+  interval: 1, ease: 2.5, nextReview: 0, reps: 0
+};
+
+if (editIndex !== null) {
+  // ⭐ 編輯模式（覆蓋原本）
+  cards[currentLangId][editIndex] = {
+    ...cards[currentLangId][editIndex], // 保留記憶參數
+    ...newData
+  };
+  editIndex = null;
+} else {
+  // ⭐ 新增模式
+  cards[currentLangId].push(newData);
+}
+  save();
+  ['card-front','card-back','card-reading','card-category','card-example'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('add-mastered-toggle').classList.remove('on');
+  goto('deck-view');
+}
+
+function editCard(idx) {
+  const c = cards[currentLangId][idx];
+  editIndex = idx;
+
+  document.getElementById('card-front').value = c.front;
+  document.getElementById('card-back').value = c.back;
+  document.getElementById('card-reading').value = c.reading || '';
+  document.getElementById('card-category').value = c.category || '';
+  document.getElementById('card-example').value = c.example || '';
+
+  const toggle = document.getElementById('add-mastered-toggle');
+  if (c.mastered) toggle.classList.add('on');
+  else toggle.classList.remove('on');
+  document.getElementById('submit-card-btn').textContent = '更新';
+  goto('add-card');
+}
+
+function deleteCard(idx) {
+  cards[currentLangId].splice(idx, 1);
+  save();
+  renderDeckView();
+}
+
+function toggleCardMastered(idx) {
+  cards[currentLangId][idx].mastered = !cards[currentLangId][idx].mastered;
+  save();
+  renderDeckView();
+}
+
+function renderPracticeSetup() {
+  const available = getCards(currentLangId).filter(c => !c.mastered).length;
+  document.getElementById('practice-available').textContent = `目前有 ${available} 張未掌握的單字卡`;
+  practiceCount = Math.min(Math.max(1, practiceCount), available || 1);
+  document.getElementById('practice-count-display').textContent = practiceCount;
+}
+
+function updateCountDisplay() {
+  const available = getCards(currentLangId).filter(c => !c.mastered).length || 1;
+  practiceCount = Math.max(1, Math.min(practiceCount, available));
+  document.getElementById('practice-count-display').textContent = practiceCount;
+}
+
+function adjustCount(delta) { practiceCount += delta; updateCountDisplay(); }
+function setCount(n) { practiceCount = n; updateCountDisplay(); }
+function setCountAll() {
+  practiceCount = getCards(currentLangId).filter(c => !c.mastered).length || 1;
+  updateCountDisplay();
+}
+
+function startPractice() {
+  const pool = getCards(currentLangId).filter(c => !c.mastered);
+  if (!pool.length) return;
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  studyQueue = shuffled.slice(0, practiceCount);
+  studyIdx = 0;
+  studyStats = { easy: 0, ok: 0, hard: 0 };
+  isPracticeMode = true;
+  const lang = LANGS.find(l => l.id === currentLangId);
+  document.getElementById('study-mode-title').textContent = '練習 · ' + lang.flag + ' ' + lang.name;
+  goto('study');
+  showCard();
+}
+
+function startStudy() {
+  const now = Date.now();
+  let pool = getCards(currentLangId).filter(c => !c.mastered && (!c.nextReview || c.nextReview <= now));
+  if (!pool.length) pool = getCards(currentLangId).filter(c => !c.mastered);
+  if (!pool.length) pool = [...getCards(currentLangId)];
+  studyQueue = [...pool].sort(() => Math.random() - 0.5);
+  studyIdx = 0;
+  studyStats = { easy: 0, ok: 0, hard: 0 };
+  isPracticeMode = false;
+  const lang = LANGS.find(l => l.id === currentLangId);
+  document.getElementById('study-mode-title').textContent = '複習 · ' + lang.flag + ' ' + lang.name;
+  goto('study');
+  showCard();
+}
+
+function showCard() {
+  if (studyIdx >= studyQueue.length) { showDone(); return; }
+  const c = studyQueue[studyIdx];
+  document.getElementById('card-front-word').textContent = c.front;
+  document.getElementById('card-back-meaning').textContent = c.back;
+  document.getElementById('card-back-reading').textContent = c.reading || '';
+  document.getElementById('card-back-example').textContent = c.example || '';
+  const catBadge = document.getElementById('card-cat-badge');
+  if (c.category) { catBadge.textContent = c.category; catBadge.style.display = 'inline-block'; }
+  else { catBadge.style.display = 'none'; }
+  const pct = Math.round((studyIdx / studyQueue.length) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = (studyIdx + 1) + ' / ' + studyQueue.length;
+  isFlipped = false;
+  document.getElementById('flashcard').classList.remove('flipped');
+  document.getElementById('reveal-area').style.display = 'block';
+  document.getElementById('rating-area').style.display = 'none';
+}
+
+function flipCard() { if (!isFlipped) revealCard(); }
+
+function revealCard() {
+  isFlipped = true;
+  document.getElementById('flashcard').classList.add('flipped');
+  document.getElementById('reveal-area').style.display = 'none';
+  document.getElementById('rating-area').style.display = 'block';
+}
+
+function rateCard(score) {
+  const c = studyQueue[studyIdx];
+  if (score === 5) { studyStats.easy++; c.interval = Math.max(1, Math.round(c.interval * c.ease)); }
+  else if (score === 3) { studyStats.ok++; }
+  else { studyStats.hard++; c.interval = 1; c.ease = Math.max(1.3, c.ease - 0.2); }
+  if (score >= 3) c.ease = Math.min(2.5, c.ease + 0.1);
+  c.nextReview = Date.now() + c.interval * 86400000;
+  c.reps++;
+  save();
+  studyIdx++;
+  showCard();
+}
+
+function markMasteredCurrent() {
+  const c = studyQueue[studyIdx];
+  c.mastered = true;
+  save();
+  studyIdx++;
+  showCard();
+}
+
+function showDone() {
+  const total = studyIdx;
+  const mode = isPracticeMode ? '練習' : '複習';
+  document.getElementById('done-emoji').textContent = studyStats.hard > studyStats.easy ? '💪' : '🎉';
+  document.getElementById('done-title').textContent = mode + '完成！';
+  document.getElementById('done-sub').textContent = `這次${mode}了 ${total} 張單字卡。`;
+  document.getElementById('done-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-num" style="color:var(--accent-dark)">${studyStats.easy}</div><div class="stat-lbl">容易</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--warn)">${studyStats.ok}</div><div class="stat-lbl">普通</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--danger)">${studyStats.hard}</div><div class="stat-lbl">困難</div></div>`;
+  goto('done');
+}
+
+renderHome();
+</script>
+</body>
+</html>

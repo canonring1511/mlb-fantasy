@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overscroll-behavior: none;
+}
+
+/* Safe area insets for iPhone notch */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Scrollable content area above bottom nav */
+.page-content {
+  height: calc(100dvh - 64px - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* PR badge colors */
+.pr-elite   { background-color: #1a7a1a; color: white; }
+.pr-good    { background-color: #5cb85c; color: white; }
+.pr-average { background-color: #f0ad4e; color: #1a1a1a; }
+.pr-below   { background-color: #e87722; color: white; }
+.pr-poor    { background-color: #d9534f; color: white; }
+.pr-na      { background-color: #374151; color: #9ca3af; }
