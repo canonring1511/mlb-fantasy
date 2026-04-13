@@ -9,7 +9,25 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import requests
-import streamlit as st
+
+try:
+    import streamlit as st
+    _HAS_STREAMLIT = True
+except ImportError:
+    _HAS_STREAMLIT = False
+
+    # No-op cache decorator when running outside Streamlit (e.g. FastAPI)
+    class _FakeCache:
+        def __call__(self, fn=None, **kwargs):
+            if fn is not None:
+                return fn
+            return lambda f: f
+
+    class _FakeSt:
+        cache_data = _FakeCache()
+        def warning(self, msg): pass
+
+    st = _FakeSt()
 
 warnings.filterwarnings("ignore")
 
