@@ -267,6 +267,29 @@ def get_savant_exit_velo(year: int = None, min_bbe: int = 25) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+@st.cache_data(ttl=3600, show_spinner="正在從 Baseball Savant 下載選球紀律數據...")
+def get_savant_plate_discipline(year: int = None, min_pa: int = 25) -> pd.DataFrame:
+    """從 Savant 取得選球紀律數據（O-Swing%, SwStr%, BB%, K% 等）"""
+    if year is None:
+        year = datetime.now().year
+    url = (
+        f"https://baseballsavant.mlb.com/leaderboard/plate-discipline"
+        f"?type=batter&year={year}&min={min_pa}&csv=true"
+    )
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        df = pd.read_csv(io.StringIO(resp.text))
+        if "last_name, first_name" in df.columns:
+            df["Name"] = df["last_name, first_name"].apply(_flip_name)
+        elif "player_name" in df.columns:
+            df["Name"] = df["player_name"]
+        return df
+    except Exception as e:
+        st.warning(f"⚠️ Savant 選球紀律數據抓取失敗：{e}")
+        return pd.DataFrame()
+
+
 # ─────────────────────────────────────────────────
 # 球員名稱模糊匹配
 # ─────────────────────────────────────────────────

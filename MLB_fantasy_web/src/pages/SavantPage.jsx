@@ -77,7 +77,7 @@ function PlayerCard({ player }) {
 
           {/* Metrics grid */}
           <div>
-            <h4 className="text-xs text-slate-400 mb-2">Statcast 指標</h4>
+            <h4 className="text-xs text-slate-400 mb-2">擊球品質</h4>
             <div className="grid grid-cols-3 gap-2">
               <MetricTile label="BA" value={player.ba} />
               <MetricTile label="xBA" value={player.xba} />
@@ -92,6 +92,21 @@ function PlayerCard({ player }) {
               <MetricTile label="LA°" value={player.la} decimals={1} />
             </div>
           </div>
+
+          {/* Plate discipline */}
+          {(player.o_swing != null || player.swstr != null || player.bb_pct != null) && (
+            <div>
+              <h4 className="text-xs text-slate-400 mb-2">選球紀律 (Plate Discipline)</h4>
+              <div className="grid grid-cols-3 gap-2">
+                <MetricTile label="Chase%" value={player.o_swing} decimals={1} />
+                <MetricTile label="Z-Swing%" value={player.z_swing} decimals={1} />
+                <MetricTile label="SwStr%" value={player.swstr} decimals={1} />
+                <MetricTile label="CSW%" value={player.csw} decimals={1} />
+                <MetricTile label="BB%" value={player.bb_pct} decimals={1} />
+                <MetricTile label="K%" value={player.k_pct} decimals={1} />
+              </div>
+            </div>
+          )}
 
           {/* Per-category verdicts */}
           <div>
