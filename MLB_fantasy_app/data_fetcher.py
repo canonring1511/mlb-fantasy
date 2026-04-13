@@ -222,15 +222,18 @@ def get_all_pitchers_last30(year: int = None) -> pd.DataFrame:
 # ─────────────────────────────────────────────────
 
 @st.cache_data(ttl=3600, show_spinner="正在從 Baseball Savant 下載 xStats...")
-def get_savant_batting_stats(year: int = None, min_pa: int = 25) -> pd.DataFrame:
-    """從 Baseball Savant 取得打者預期數據（xBA, xSLG, xwOBA 等）"""
+def get_savant_batting_stats(year: int = None, min_pa: int = 10) -> pd.DataFrame:
+    """從 Baseball Savant 取得打者預期數據（xBA, xSLG, xwOBA 等）
+    如果當年數據不足 50 人，自動補抓前一年。
+    """
     if year is None:
         year = datetime.now().year
-    url = (
-        f"https://baseballsavant.mlb.com/leaderboard/expected_statistics"
-        f"?type=batter&year={year}&position=&team=&min={min_pa}&csv=true"
-    )
-    try:
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/expected_statistics"
+            f"?type=batter&year={yr}&position=&team=&min={min_pa}&csv=true"
+        )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
         df = pd.read_csv(io.StringIO(resp.text))
@@ -238,6 +241,15 @@ def get_savant_batting_stats(year: int = None, min_pa: int = 25) -> pd.DataFrame
             df["Name"] = df["last_name, first_name"].apply(_flip_name)
         elif "player_name" in df.columns:
             df["Name"] = df["player_name"]
+        return df
+
+    try:
+        df = _fetch(year)
+        if len(df) < 50:
+            df_prev = _fetch(year - 1)
+            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df_prev_fill = df_prev[~df_prev["Name"].isin(existing_names)]
+            df = pd.concat([df, df_prev_fill], ignore_index=True)
         return df
     except Exception as e:
         st.warning(f"⚠️ Savant 數據抓取失敗：{e}")
@@ -245,15 +257,18 @@ def get_savant_batting_stats(year: int = None, min_pa: int = 25) -> pd.DataFrame
 
 
 @st.cache_data(ttl=3600, show_spinner="正在從 Baseball Savant 下載出球速度數據...")
-def get_savant_exit_velo(year: int = None, min_bbe: int = 25) -> pd.DataFrame:
-    """從 Savant 取得出球速度、Barrel、HardHit 等數據"""
+def get_savant_exit_velo(year: int = None, min_bbe: int = 10) -> pd.DataFrame:
+    """從 Savant 取得出球速度、Barrel、HardHit 等數據
+    如果當年數據不足 50 人，自動補抓前一年。
+    """
     if year is None:
         year = datetime.now().year
-    url = (
-        f"https://baseballsavant.mlb.com/leaderboard/statcast"
-        f"?type=batter&year={year}&position=&team=&min={min_bbe}&csv=true"
-    )
-    try:
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/statcast"
+            f"?type=batter&year={yr}&position=&team=&min={min_bbe}&csv=true"
+        )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
         df = pd.read_csv(io.StringIO(resp.text))
@@ -262,21 +277,33 @@ def get_savant_exit_velo(year: int = None, min_bbe: int = 25) -> pd.DataFrame:
         elif "player_name" in df.columns:
             df["Name"] = df["player_name"]
         return df
+
+    try:
+        df = _fetch(year)
+        if len(df) < 50:
+            df_prev = _fetch(year - 1)
+            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df_prev_fill = df_prev[~df_prev["Name"].isin(existing_names)]
+            df = pd.concat([df, df_prev_fill], ignore_index=True)
+        return df
     except Exception as e:
         st.warning(f"⚠️ Savant 出球速度數據抓取失敗：{e}")
         return pd.DataFrame()
 
 
 @st.cache_data(ttl=3600, show_spinner="正在從 Baseball Savant 下載選球紀律數據...")
-def get_savant_plate_discipline(year: int = None, min_pa: int = 25) -> pd.DataFrame:
-    """從 Savant 取得選球紀律數據（O-Swing%, SwStr%, BB%, K% 等）"""
+def get_savant_plate_discipline(year: int = None, min_pa: int = 10) -> pd.DataFrame:
+    """從 Savant 取得選球紀律數據（O-Swing%, SwStr%, BB%, K% 等）
+    如果當年數據不足 50 人，自動補抓前一年。
+    """
     if year is None:
         year = datetime.now().year
-    url = (
-        f"https://baseballsavant.mlb.com/leaderboard/plate-discipline"
-        f"?type=batter&year={year}&min={min_pa}&csv=true"
-    )
-    try:
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/plate-discipline"
+            f"?type=batter&year={yr}&min={min_pa}&csv=true"
+        )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
         df = pd.read_csv(io.StringIO(resp.text))
@@ -284,6 +311,17 @@ def get_savant_plate_discipline(year: int = None, min_pa: int = 25) -> pd.DataFr
             df["Name"] = df["last_name, first_name"].apply(_flip_name)
         elif "player_name" in df.columns:
             df["Name"] = df["player_name"]
+        return df
+
+    try:
+        df = _fetch(year)
+        # 如果當年數據不足，補抓前一年
+        if len(df) < 50:
+            df_prev = _fetch(year - 1)
+            # 合併：當年有的用當年，否則用前一年
+            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df_prev_fill = df_prev[~df_prev["Name"].isin(existing_names)]
+            df = pd.concat([df, df_prev_fill], ignore_index=True)
         return df
     except Exception as e:
         st.warning(f"⚠️ Savant 選球紀律數據抓取失敗：{e}")

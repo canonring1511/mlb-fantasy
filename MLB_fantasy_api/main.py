@@ -368,3 +368,16 @@ def get_pitchers(year: int = datetime.now().year, period: str = "season"):
     """Return raw pitcher stats (for debugging)."""
     df = _get_pitchers(year, period)
     return {"count": len(df), "sample": _df_to_records(df.head(5))}
+
+
+@app.get("/debug/plate-discipline")
+def debug_plate_discipline(year: int = 2025):
+    """Debug: show plate discipline CSV columns and sample row."""
+    df = get_savant_plate_discipline(year)
+    if df.empty:
+        return {"error": "empty dataframe"}
+    return {
+        "count": len(df),
+        "columns": df.columns.tolist(),
+        "sample": _df_to_records(df.head(3)),
+    }

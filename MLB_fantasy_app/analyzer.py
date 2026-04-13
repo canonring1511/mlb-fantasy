@@ -8,9 +8,11 @@ import pandas as pd
 
 def _percentileofscore(a: np.ndarray, score: float) -> float:
     """numpy replacement for scipy.stats.percentileofscore(kind='rank')"""
+    a = pd.to_numeric(pd.Series(a), errors="coerce").dropna().values
     n = len(a)
     if n == 0:
         return np.nan
+    score = float(score)
     left  = np.count_nonzero(a < score)
     right = np.count_nonzero(a <= score)
     return (left + right + (1 if right > left else 0)) / (2 * n) * 100
