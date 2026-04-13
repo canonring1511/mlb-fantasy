@@ -3,10 +3,15 @@ MLB Fantasy Baseball API Backend
 FastAPI backend for the React mobile frontend
 """
 
+import logging
 import os
 import sys
+import traceback
 from datetime import datetime, timedelta
 from typing import Optional
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 import numpy as np
 import pandas as pd
@@ -173,6 +178,7 @@ async def ocr_roster(
         result = extract_roster_from_screenshot(image_bytes)
         return result  # {"batters": [...], "pitchers": [...]}
     except Exception as e:
+        logger.error("OCR roster error: %s\n%s", e, traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -188,6 +194,7 @@ async def ocr_fa(
         names = extract_fa_players_from_screenshot(image_bytes)
         return {"players": names}
     except Exception as e:
+        logger.error("OCR FA error: %s\n%s", e, traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
