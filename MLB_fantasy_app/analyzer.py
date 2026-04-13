@@ -236,7 +236,6 @@ def analyze_savant_luck(
     player_names: list[str],
     savant_df: pd.DataFrame,
     ev_df: pd.DataFrame = None,
-    pd_df: pd.DataFrame = None,   # plate discipline
 ) -> list[dict]:
     """
     分析球員擊球品質，對各 Fantasy 類別給出「看漲/維持/看跌」結論。
@@ -252,7 +251,6 @@ def analyze_savant_luck(
 
         s_row = None
         e_row = None
-        p_row = None  # plate discipline
 
         if not savant_df.empty:
             matched = fuzzy_match_player(name, savant_df, "Name")
@@ -264,12 +262,6 @@ def analyze_savant_luck(
             matched_ev = fuzzy_match_player(name, ev_df, "Name")
             if matched_ev:
                 e_row = ev_df[ev_df["Name"] == matched_ev].iloc[0].to_dict()
-                entry["found"] = True
-
-        if pd_df is not None and not pd_df.empty:
-            matched_pd = fuzzy_match_player(name, pd_df, "Name")
-            if matched_pd:
-                p_row = pd_df[pd_df["Name"] == matched_pd].iloc[0].to_dict()
                 entry["found"] = True
 
         # ── 原始數據（Savant CSV 實際欄位名稱）──
@@ -298,13 +290,13 @@ def analyze_savant_luck(
         hh    = fget(e_row, "ev95percent")
         ev    = fget(e_row, "avg_hit_speed")
         la    = fget(e_row, "avg_hit_angle")
-        # Plate discipline（欄位名稱依 Savant CSV）
-        o_swing = fget(p_row, "o_swing_percent")   # Chase rate（追打壞球%）
-        z_swing = fget(p_row, "z_swing_percent")   # 打好球帶%
-        swstr   = fget(p_row, "swstr_percent")     # Swinging Strike%
-        bb_pct  = fget(p_row, "bb_percent", "walk_percent")
-        k_pct   = fget(p_row, "k_percent", "strikeout_percent")
-        csw     = fget(p_row, "csw_percent")       # Called Strike + Whiff%
+        # Plate discipline 指標（O-Swing%, SwStr% 等）目前無法從 Savant CSV 取得
+        o_swing = np.nan
+        z_swing = np.nan
+        swstr   = np.nan
+        bb_pct  = np.nan
+        k_pct   = np.nan
+        csw     = np.nan
 
         entry.update({
             "ba": ba, "xba": xba,
@@ -424,60 +416,28 @@ def _build_verdicts(ba, xba, slg, xslg, woba, xwoba, babip, brl, hh, ev, la,
     v["2B/3B"] = _aggregate_signals(signals_xb)
 
     # ── BB ──────────────────────────────────────
-    signals_bb = []
-    if not np.isnan(o_swing):
-        if o_swing < 25:
-            signals_bb.append(("up",   f"Chase rate {o_swing:.1f}% 極低（≤25%），選球耐心優秀，BB 可持續"))
-        elif o_swing < 30:
-            signals_bb.append(("hold", f"Chase rate {o_swing:.1f}% 正常（25-30%），選球屬合理範圍"))
-        else:
-            signals_bb.append(("down", f"Chase rate {o_swing:.1f}% 偏高（>30%），追打壞球多，BB 可能減少"))
-    if not np.isnan(bb_pct):
-        if bb_pct >= 12:
-            signals_bb.append(("up",   f"BB% {bb_pct:.1f}% 高（≥12%），具備耐心選球能力"))
-        elif bb_pct < 6:
-            signals_bb.append(("down", f"BB% {bb_pct:.1f}% 偏低（<6%），選球紀律需改善"))
-        else:
-            signals_bb.append(("hold", f"BB% {bb_pct:.1f}% 屬正常範圍（6-12%）"))
-    if not np.isnan(z_swing):
-        if z_swing >= 70:
-            signals_bb.append(("down", f"好球帶揮棒率 {z_swing:.1f}% 高，積極打者，BB 機率較低"))
-        elif z_swing < 60:
-            signals_bb.append(("up",   f"好球帶揮棒率 {z_swing:.1f}% 低，傾向等球，有利累積 BB"))
-    v["BB"] = _aggregate_signals(signals_bb) if signals_bb else {
-        "verdict": "hold", "icon": "➡️", "label": "維持",
-        "reasons": ["Plate Discipline 數據不足，無法判斷"],
+    # 需要 O-Swing%（Chase rate）、Z-Swing% 才能判斷選球可持續性
+    # 這些數據目前無法從 Baseball Savant 免費 CSV 取得
+    v["BB"] = {
+        "verdict": "hold",
+        "icon": "➡️",
+        "label": "無法判斷",
+        "reasons": [
+            "BB 分析需要 O-Swing%（追打壞球率）與 Zone% 等選球紀律指標。",
+            "這些數據目前無法從 Baseball Savant 公開 CSV 取得，建議參考 FanGraphs 的 Plate Discipline 頁面手動查詢。",
+        ],
     }
 
     # ── K（打者被三振）────────────────────────────
-    signals_k = []
-    if not np.isnan(swstr):
-        if swstr >= 14:
-            signals_k.append(("down", f"SwStr% {swstr:.1f}% 高（≥14%），揮空率高，K 風險大"))
-        elif swstr >= 10:
-            signals_k.append(("hold", f"SwStr% {swstr:.1f}% 正常（10-14%）"))
-        else:
-            signals_k.append(("up",   f"SwStr% {swstr:.1f}% 低（<10%），不易被三振"))
-    if not np.isnan(csw):
-        if csw >= 32:
-            signals_k.append(("down", f"CSW% {csw:.1f}% 高（≥32%），投手容易製造好球，K 風險增加"))
-        elif csw < 26:
-            signals_k.append(("up",   f"CSW% {csw:.1f}% 低（<26%），不易陷入不利球數，K 率低"))
-    if not np.isnan(k_pct):
-        if k_pct >= 28:
-            signals_k.append(("down", f"K% {k_pct:.1f}% 高（≥28%），三振率偏高"))
-        elif k_pct < 15:
-            signals_k.append(("up",   f"K% {k_pct:.1f}% 低（<15%），不易被三振，有利計分"))
-        else:
-            signals_k.append(("hold", f"K% {k_pct:.1f}% 屬正常範圍"))
-    if not np.isnan(o_swing):
-        if o_swing >= 35:
-            signals_k.append(("down", f"Chase rate {o_swing:.1f}% 高，容易被壞球引誘揮棒造成三振"))
-        elif o_swing < 25:
-            signals_k.append(("up",   f"Chase rate {o_swing:.1f}% 低，不易被壞球引誘，K 率穩定"))
-    v["K"] = _aggregate_signals(signals_k) if signals_k else {
-        "verdict": "hold", "icon": "➡️", "label": "維持",
-        "reasons": ["Plate Discipline 數據不足，無法判斷"],
+    # 需要 SwStr%（揮空率）、CSW% 才能判斷三振風險
+    v["K"] = {
+        "verdict": "hold",
+        "icon": "➡️",
+        "label": "無法判斷",
+        "reasons": [
+            "K 分析需要 SwStr%（揮空率）與 CSW%（好球製造率）等指標。",
+            "這些數據目前無法從 Baseball Savant 公開 CSV 取得，建議參考 FanGraphs 的 Plate Discipline 頁面手動查詢。",
+        ],
     }
 
     return v

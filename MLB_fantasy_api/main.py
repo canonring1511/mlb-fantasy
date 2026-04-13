@@ -332,17 +332,10 @@ def analyze_savant(req: SavantRequest):
     try:
         savant_df = get_savant_batting_stats(req.year)
         ev_df = get_savant_exit_velo(req.year)
-        pd_df = get_savant_plate_discipline(req.year)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Savant fetch failed: {e}")
 
-    # Also fetch MLB batter stats for BB%/K% calculation fallback
-    mlb_batters = _get_batters(req.year, "season")
-
-    results = analyze_savant_luck(
-        req.player_names, savant_df, ev_df,
-        pd_df=pd_df, mlb_batters_df=mlb_batters,
-    )
+    results = analyze_savant_luck(req.player_names, savant_df, ev_df)
 
     # Sanitize NaN values for JSON
     sanitized = []
