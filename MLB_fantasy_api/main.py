@@ -336,7 +336,13 @@ def analyze_savant(req: SavantRequest):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Savant fetch failed: {e}")
 
-    results = analyze_savant_luck(req.player_names, savant_df, ev_df, pd_df=pd_df)
+    # Also fetch MLB batter stats for BB%/K% calculation fallback
+    mlb_batters = _get_batters(req.year, "season")
+
+    results = analyze_savant_luck(
+        req.player_names, savant_df, ev_df,
+        pd_df=pd_df, mlb_batters_df=mlb_batters,
+    )
 
     # Sanitize NaN values for JSON
     sanitized = []
@@ -380,4 +386,17 @@ def debug_plate_discipline(year: int = 2025):
         "count": len(df),
         "columns": df.columns.tolist(),
         "sample": _df_to_records(df.head(3)),
+    }
+
+
+@app.get("/debug/statcast")
+def debug_statcast(year: int = 2025):
+    """Debug: show statcast/exit-velo CSV columns."""
+    df = get_savant_exit_velo(year)
+    if df.empty:
+        return {"error": "empty dataframe"}
+    return {
+        "count": len(df),
+        "columns": df.columns.tolist(),
+        "sample": _df_to_records(df.head(2)),
     }
