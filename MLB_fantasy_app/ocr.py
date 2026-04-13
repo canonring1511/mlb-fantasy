@@ -111,7 +111,7 @@ def _generate_with_fallback(client, contents):
             )
         except Exception as e:
             err_str = str(e)
-            if any(code in err_str for code in ["429", "RESOURCE_EXHAUSTED", "404", "NOT_FOUND"]):
+            if any(code in err_str for code in ["429", "RESOURCE_EXHAUSTED", "404", "NOT_FOUND", "503", "UNAVAILABLE"]):
                 last_error = e
                 continue
             raise
