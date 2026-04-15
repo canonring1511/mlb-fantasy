@@ -3,6 +3,64 @@ import { analyzeSavant } from '../api'
 import { loadSettings } from '../store'
 import LoadingSpinner from '../components/LoadingSpinner'
 
+// 進階數據 PR bar chart
+const SAVANT_PR_METRICS = [
+  { key: 'xBA',     label: 'xBA',     hint: '預期打擊率' },
+  { key: 'xSLG',    label: 'xSLG',    hint: '預期長打率' },
+  { key: 'xwOBA',   label: 'xwOBA',   hint: '預期加權上壘率' },
+  { key: 'BABIP',   label: 'BABIP',   hint: '場內球打擊率（運氣指標）' },
+  { key: 'Barrel%', label: 'Barrel%', hint: '桶擊率' },
+  { key: 'HH%',     label: 'HH%',     hint: '強擊率 (EV95+)' },
+  { key: 'EV',      label: 'EV',      hint: '平均初速' },
+]
+
+function prBarColor(val) {
+  if (val >= 80) return 'bg-green-500'
+  if (val >= 60) return 'bg-green-400'
+  if (val >= 40) return 'bg-yellow-500'
+  if (val >= 20) return 'bg-orange-500'
+  return 'bg-red-600'
+}
+
+function SavantPRChart({ savantPr }) {
+  if (!savantPr || Object.keys(savantPr).length === 0) return null
+  const rows = SAVANT_PR_METRICS.filter(m => savantPr[m.key] !== null && savantPr[m.key] !== undefined)
+  if (rows.length === 0) return null
+
+  return (
+    <div>
+      <h4 className="text-xs text-slate-400 mb-2">進階數據 PR 排名（vs 全聯盟）</h4>
+      <div className="space-y-2">
+        {rows.map(({ key, label, hint }) => {
+          const val = savantPr[key]
+          const pct = Math.min(100, Math.max(0, val))
+          return (
+            <div key={key} className="flex items-center gap-2">
+              <div className="w-16 shrink-0 text-right">
+                <span className="text-xs font-mono text-slate-300" title={hint}>{label}</span>
+              </div>
+              <div className="flex-1 bg-slate-700 rounded-full h-3 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${prBarColor(val)}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <div className="w-8 shrink-0 text-right">
+                <span className={`text-xs font-mono font-semibold ${
+                  val >= 80 ? 'text-green-400' :
+                  val >= 60 ? 'text-green-300' :
+                  val >= 40 ? 'text-yellow-400' :
+                  val >= 20 ? 'text-orange-400' : 'text-red-400'
+                }`}>{val.toFixed(0)}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 const VERDICT_STYLE = {
   up:   { icon: '📈', label: '看漲', color: 'text-green-400', bg: 'bg-green-900/30 border-green-700' },
   hold: { icon: '➡️', label: '維持', color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-800' },
@@ -92,6 +150,9 @@ function PlayerCard({ player }) {
               <MetricTile label="LA°" value={player.la} decimals={1} />
             </div>
           </div>
+
+          {/* Savant PR bar chart */}
+          <SavantPRChart savantPr={player.savant_pr} />
 
           {/* Plate discipline */}
           {(player.o_swing != null || player.swstr != null || player.bb_pct != null) && (

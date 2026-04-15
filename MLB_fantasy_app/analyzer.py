@@ -308,6 +308,33 @@ def analyze_savant_luck(
             "hard_hit": hh, "ev": ev, "la": la,
         })
 
+        # ── Savant PR 值（與全聯盟球員比較的百分位排名）──
+        savant_pr = {}
+        if not savant_df.empty:
+            for label, col, val in [
+                ("xBA",   "est_ba",   xba),
+                ("xSLG",  "est_slg",  xslg),
+                ("xwOBA", "est_woba", xwoba),
+                ("BABIP", "babip",    babip),
+            ]:
+                if col in savant_df.columns:
+                    savant_pr[label] = compute_pr(
+                        val,
+                        pd.to_numeric(savant_df[col], errors="coerce"),
+                    )
+        if ev_df is not None and not ev_df.empty:
+            for label, col, val in [
+                ("Barrel%", "brl_percent",   brl),
+                ("HH%",     "ev95percent",   hh),
+                ("EV",      "avg_hit_speed", ev),
+            ]:
+                if col in ev_df.columns:
+                    savant_pr[label] = compute_pr(
+                        val,
+                        pd.to_numeric(ev_df[col], errors="coerce"),
+                    )
+        entry["savant_pr"] = savant_pr
+
         # ── 各類別結論 ──
         entry["verdicts"] = _build_verdicts(
             ba, xba, slg, xslg, woba, xwoba, babip, brl, hh, ev, la,

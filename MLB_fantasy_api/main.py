@@ -337,18 +337,18 @@ def analyze_savant(req: SavantRequest):
 
     results = analyze_savant_luck(req.player_names, savant_df, ev_df)
 
+    def _sanitize(val):
+        """Recursively replace NaN floats with None for JSON serialization."""
+        if isinstance(val, float) and np.isnan(val):
+            return None
+        if isinstance(val, dict):
+            return {k: _sanitize(v) for k, v in val.items()}
+        return val
+
     # Sanitize NaN values for JSON
     sanitized = []
     for r in results:
-        clean = {}
-        for k, v in r.items():
-            if isinstance(v, float) and np.isnan(v):
-                clean[k] = None
-            elif isinstance(v, dict):
-                clean[k] = v  # verdicts dict is fine as-is
-            else:
-                clean[k] = v
-        sanitized.append(clean)
+        sanitized.append({k: _sanitize(v) for k, v in r.items()})
 
     return {"players": sanitized}
 
