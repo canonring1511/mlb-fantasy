@@ -4,57 +4,66 @@ import { loadSettings } from '../store'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 // ── PR bar chart sections ──────────────────────────────────────────
+// formula 欄位：顯示在 bar 下方的計算說明（手機上 hint/tooltip 沒用）
 const PR_SECTIONS = [
   {
     title: '預期數據',
     metrics: [
-      { key: 'xBA',   label: 'xBA',   hint: '預期打擊率',     rawKey: 'xba',   fmt: v => v.toFixed(3) },
-      { key: 'xSLG',  label: 'xSLG',  hint: '預期長打率',     rawKey: 'xslg',  fmt: v => v.toFixed(3) },
-      { key: 'xwOBA', label: 'xwOBA', hint: '預期加權上壘率', rawKey: 'xwoba', fmt: v => v.toFixed(3) },
-      { key: 'xISO',  label: 'xISO',  hint: '預期純長打率 (xSLG−xBA)', rawKey: 'xiso', fmt: v => v.toFixed(3) },
+      { key: 'xBA',   label: 'xBA',   rawKey: 'xba',   fmt: v => v.toFixed(3),
+        formula: '根據擊球品質推算的預期打擊率' },
+      { key: 'xwOBA', label: 'xwOBA', rawKey: 'xwoba', fmt: v => v.toFixed(3),
+        formula: '根據擊球品質推算的預期加權上壘率' },
+      { key: 'xISO',  label: 'xISO',  rawKey: 'xiso',  fmt: v => v.toFixed(3),
+        formula: 'xSLG − xBA，預期長打能力指標' },
     ],
   },
   {
     title: '擊球品質',
     metrics: [
-      { key: 'Barrel%', label: 'Barrel%', hint: '桶擊率',              rawKey: 'brl',      fmt: v => v.toFixed(1) + '%' },
-      { key: 'Brl/PA',  label: 'Brl/PA',  hint: '每打席桶擊率',        rawKey: 'brl_pa',   fmt: v => v.toFixed(1) + '%' },
-      { key: 'HH%',     label: 'HH%',     hint: '強擊率 EV95+',        rawKey: 'hard_hit', fmt: v => v.toFixed(1) + '%' },
-      { key: 'EV',      label: 'EV',      hint: '平均出球速度 (mph)',   rawKey: 'ev',       fmt: v => v.toFixed(1) },
-      { key: 'Sweet%',  label: 'Sweet%',  hint: '甜蜜角度觸球率 8-32°', rawKey: 'sweet',    fmt: v => v.toFixed(1) + '%' },
-      { key: 'AvgDist', label: 'AvgDist', hint: '平均打擊距離 (ft)',    rawKey: 'avg_dist', fmt: v => v.toFixed(0) + ' ft' },
+      { key: 'Barrel%', label: 'Barrel%', rawKey: 'brl',      fmt: v => v.toFixed(1) + '%',
+        formula: '出球速度 ≥98mph 且仰角在最佳區間的打球比率' },
+      { key: 'HH%',     label: 'HH%',     rawKey: 'hard_hit', fmt: v => v.toFixed(1) + '%',
+        formula: '出球速度 ≥95mph（EV95+）的打球比率' },
+      { key: 'EV',      label: 'EV',      rawKey: 'ev',       fmt: v => v.toFixed(1) + ' mph' },
+      { key: 'Sweet%',  label: 'Sweet%',  rawKey: 'sweet',    fmt: v => v.toFixed(1) + '%',
+        formula: '仰角落在 8–32° 的觸球比率（最佳擊球角度區間）' },
     ],
   },
   {
     title: '選球紀律',
     metrics: [
-      { key: 'BABIP', label: 'BABIP', hint: '場內球打擊率（運氣指標）', rawKey: 'babip', fmt: v => v.toFixed(3) },
-      { key: 'BB%',   label: 'BB%',   hint: '四壞球率',                 rawKey: 'bb_pct', fmt: v => v.toFixed(1) + '%' },
-      { key: 'K%',    label: 'K%↓',   hint: '三振率（越低越好）',        rawKey: 'k_pct',  fmt: v => v.toFixed(1) + '%', lowerBetter: true },
+      { key: 'BABIP', label: 'BABIP', rawKey: 'babip',  fmt: v => v.toFixed(3),
+        formula: '(安打 − 全壘打) ÷ (打數 − 三振 − 全壘打)，反映運氣成分' },
+      { key: 'BB%',   label: 'BB%',   rawKey: 'bb_pct', fmt: v => v.toFixed(1) + '%',
+        formula: '四壞球 ÷ 打席數' },
+      { key: 'K%',    label: 'K%↓',   rawKey: 'k_pct',  fmt: v => v.toFixed(1) + '%',
+        formula: '三振 ÷ 打席數（越低越好）', lowerBetter: true },
     ],
   },
   {
     title: '打球分佈',
     metrics: [
-      { key: 'FBLD%', label: 'FBLD%', hint: '飛球+平飛球率（越高越好）', rawKey: 'fbld_rate', fmt: v => v.toFixed(1) + '%' },
-      { key: 'GB%',   label: 'GB%↓',  hint: '滾地球率（越低越好）',      rawKey: 'gb_rate',  fmt: v => v.toFixed(1) + '%', lowerBetter: true },
+      { key: 'GB%', label: 'GB%↓', rawKey: 'gb_rate', fmt: v => v.toFixed(1) + '%',
+        formula: '滾地球數 ÷ 場內球總數（越低對長打越有利）', lowerBetter: true },
     ],
   },
   {
     title: '跑壘速度',
     metrics: [
-      { key: 'Sprint', label: 'Sprint', hint: '衝刺速度 (ft/s)',     rawKey: 'sprint_speed', fmt: v => v.toFixed(1) },
-      { key: 'HP-1B',  label: 'HP-1B↓', hint: '本壘到一壘秒數（越低越快）', rawKey: 'hp_to_1b', fmt: v => v.toFixed(2) + 's', lowerBetter: true },
+      { key: 'Sprint', label: 'Sprint', rawKey: 'sprint_speed', fmt: v => v.toFixed(1) + ' ft/s' },
+      { key: 'HP-1B',  label: 'HP-1B↓', rawKey: 'hp_to_1b',    fmt: v => v.toFixed(2) + 's',
+        formula: '從本壘跑到一壘的秒數（越低越快）', lowerBetter: true },
     ],
   },
   {
     title: '揮棒力學',
     metrics: [
-      { key: 'BatSpd',   label: 'BatSpd',   hint: '平均揮棒速度 (mph)',   rawKey: 'bat_speed',   fmt: v => v.toFixed(1) },
-      { key: 'HardSwg%', label: 'HardSwg%', hint: '爆發揮棒率',           rawKey: 'hard_swing',  fmt: v => (v * 100).toFixed(1) + '%' },
-      { key: 'Sqd/Sw',   label: 'Sqd/Sw',   hint: '每揮棒正中率',         rawKey: 'squared_up',  fmt: v => (v * 100).toFixed(1) + '%' },
-      { key: 'Blast/Sw', label: 'Blast/Sw', hint: '每揮棒爆發率',         rawKey: 'blast_swing', fmt: v => (v * 100).toFixed(1) + '%' },
-      { key: 'Whiff/Sw', label: 'Whiff↓',   hint: '每揮棒揮空率（越低越好）', rawKey: 'whiff_swing', fmt: v => (v * 100).toFixed(1) + '%', lowerBetter: true },
+      { key: 'BatSpd',   label: 'BatSpd',  rawKey: 'bat_speed',   fmt: v => v.toFixed(1) + ' mph',
+        formula: '平均揮棒速度，反映原始爆發力' },
+      { key: 'Sqd/Sw',   label: 'Sqd/Sw',  rawKey: 'squared_up',  fmt: v => (v * 100).toFixed(1) + '%',
+        formula: '揮棒正中（球棒甜蜜點正面擊球）次數 ÷ 揮棒數' },
+      { key: 'Whiff/Sw', label: 'Whiff↓',  rawKey: 'whiff_swing', fmt: v => (v * 100).toFixed(1) + '%',
+        formula: '揮空次數 ÷ 揮棒數（越低接觸球能力越強）', lowerBetter: true },
     ],
   },
 ]
@@ -96,32 +105,39 @@ function SavantPRChart({ savantPr, player }) {
             {section.title}
           </div>
           <div className="space-y-1.5">
-            {section.metrics.map(({ key, label, hint, rawKey, fmt }) => {
+            {section.metrics.map(({ key, label, rawKey, fmt, formula }) => {
               const pr  = savantPr[key]
               const raw = player[rawKey]
               const pct = Math.min(100, Math.max(0, pr))
               const hasRaw = raw !== null && raw !== undefined && !Number.isNaN(raw)
               return (
-                <div key={key} className="flex items-center gap-2" title={hint}>
-                  <div className="w-16 shrink-0 text-right">
-                    <span className="text-xs font-mono text-slate-300">{label}</span>
+                <div key={key} className="mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 shrink-0 text-right">
+                      <span className="text-xs font-mono text-slate-300">{label}</span>
+                    </div>
+                    <div className="flex-1 bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${prBarColor(pr)}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="w-7 shrink-0 text-right">
+                      <span className={`text-xs font-mono font-bold ${prTextColor(pr)}`}>
+                        {pr.toFixed(0)}
+                      </span>
+                    </div>
+                    <div className="w-16 shrink-0 text-right">
+                      <span className="text-xs text-slate-500 font-mono">
+                        {hasRaw ? fmt(raw) : '—'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex-1 bg-slate-700 rounded-full h-2.5 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${prBarColor(pr)}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="w-7 shrink-0 text-right">
-                    <span className={`text-xs font-mono font-bold ${prTextColor(pr)}`}>
-                      {pr.toFixed(0)}
-                    </span>
-                  </div>
-                  <div className="w-16 shrink-0 text-right">
-                    <span className="text-xs text-slate-500 font-mono">
-                      {hasRaw ? fmt(raw) : '—'}
-                    </span>
-                  </div>
+                  {formula && (
+                    <div className="ml-[72px] mt-0.5">
+                      <span className="text-slate-600 text-xs leading-tight">{formula}</span>
+                    </div>
+                  )}
                 </div>
               )
             })}
