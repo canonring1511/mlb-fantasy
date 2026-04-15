@@ -39,8 +39,10 @@ from config import (
 from data_fetcher import (
     _fetch_mlb_stats,
     get_savant_batting_stats,
+    get_savant_bat_tracking,
     get_savant_exit_velo,
     get_savant_plate_discipline,
+    get_savant_sprint_speed,
     match_players_to_df,
 )
 from ocr import extract_fa_players_from_screenshot, extract_roster_from_screenshot
@@ -332,10 +334,15 @@ def analyze_savant(req: SavantRequest):
     try:
         savant_df = get_savant_batting_stats(req.year)
         ev_df = get_savant_exit_velo(req.year)
+        sprint_df = get_savant_sprint_speed(req.year)
+        bat_tracking_df = get_savant_bat_tracking(req.year)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Savant fetch failed: {e}")
 
-    results = analyze_savant_luck(req.player_names, savant_df, ev_df)
+    results = analyze_savant_luck(
+        req.player_names, savant_df, ev_df,
+        sprint_df=sprint_df, bat_tracking_df=bat_tracking_df,
+    )
 
     def _sanitize(val):
         """Recursively replace NaN floats with None for JSON serialization."""

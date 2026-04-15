@@ -3,15 +3,52 @@ import { analyzeSavant } from '../api'
 import { loadSettings } from '../store'
 import LoadingSpinner from '../components/LoadingSpinner'
 
-// 進階數據 PR bar chart
-const SAVANT_PR_METRICS = [
-  { key: 'xBA',     label: 'xBA',     hint: '預期打擊率' },
-  { key: 'xSLG',    label: 'xSLG',    hint: '預期長打率' },
-  { key: 'xwOBA',   label: 'xwOBA',   hint: '預期加權上壘率' },
-  { key: 'BABIP',   label: 'BABIP',   hint: '場內球打擊率（運氣指標）' },
-  { key: 'Barrel%', label: 'Barrel%', hint: '桶擊率' },
-  { key: 'HH%',     label: 'HH%',     hint: '強擊率 (EV95+)' },
-  { key: 'EV',      label: 'EV',      hint: '平均初速' },
+// ── PR bar chart sections ──────────────────────────────────────────
+const PR_SECTIONS = [
+  {
+    title: '預期數據',
+    metrics: [
+      { key: 'xBA',   label: 'xBA',   hint: '預期打擊率',     rawKey: 'xba',   fmt: v => v.toFixed(3) },
+      { key: 'xSLG',  label: 'xSLG',  hint: '預期長打率',     rawKey: 'xslg',  fmt: v => v.toFixed(3) },
+      { key: 'xwOBA', label: 'xwOBA', hint: '預期加權上壘率', rawKey: 'xwoba', fmt: v => v.toFixed(3) },
+      { key: 'xISO',  label: 'xISO',  hint: '預期純長打率 (xSLG−xBA)', rawKey: 'xiso', fmt: v => v.toFixed(3) },
+    ],
+  },
+  {
+    title: '擊球品質',
+    metrics: [
+      { key: 'Barrel%', label: 'Barrel%', hint: '桶擊率',              rawKey: 'brl',      fmt: v => v.toFixed(1) + '%' },
+      { key: 'Brl/PA',  label: 'Brl/PA',  hint: '每打席桶擊率',        rawKey: 'brl_pa',   fmt: v => v.toFixed(1) + '%' },
+      { key: 'HH%',     label: 'HH%',     hint: '強擊率 EV95+',        rawKey: 'hard_hit', fmt: v => v.toFixed(1) + '%' },
+      { key: 'EV',      label: 'EV',      hint: '平均出球速度 (mph)',   rawKey: 'ev',       fmt: v => v.toFixed(1) },
+      { key: 'Sweet%',  label: 'Sweet%',  hint: '甜蜜角度觸球率 8-32°', rawKey: 'sweet',    fmt: v => v.toFixed(1) + '%' },
+      { key: 'AvgDist', label: 'AvgDist', hint: '平均打擊距離 (ft)',    rawKey: 'avg_dist', fmt: v => v.toFixed(0) + ' ft' },
+    ],
+  },
+  {
+    title: '打球分佈',
+    metrics: [
+      { key: 'FBLD%', label: 'FBLD%', hint: '飛球+平飛球率（越高越好）', rawKey: 'fbld_rate', fmt: v => v.toFixed(1) + '%' },
+      { key: 'GB%',   label: 'GB%↓',  hint: '滾地球率（越低越好）',      rawKey: 'gb_rate',  fmt: v => v.toFixed(1) + '%', lowerBetter: true },
+    ],
+  },
+  {
+    title: '跑壘速度',
+    metrics: [
+      { key: 'Sprint', label: 'Sprint', hint: '衝刺速度 (ft/s)',     rawKey: 'sprint_speed', fmt: v => v.toFixed(1) },
+      { key: 'HP-1B',  label: 'HP-1B↓', hint: '本壘到一壘秒數（越低越快）', rawKey: 'hp_to_1b', fmt: v => v.toFixed(2) + 's', lowerBetter: true },
+    ],
+  },
+  {
+    title: '揮棒力學',
+    metrics: [
+      { key: 'BatSpd',   label: 'BatSpd',   hint: '平均揮棒速度 (mph)',   rawKey: 'bat_speed',   fmt: v => v.toFixed(1) },
+      { key: 'HardSwg%', label: 'HardSwg%', hint: '爆發揮棒率',           rawKey: 'hard_swing',  fmt: v => (v * 100).toFixed(1) + '%' },
+      { key: 'Sqd/Sw',   label: 'Sqd/Sw',   hint: '每揮棒正中率',         rawKey: 'squared_up',  fmt: v => (v * 100).toFixed(1) + '%' },
+      { key: 'Blast/Sw', label: 'Blast/Sw', hint: '每揮棒爆發率',         rawKey: 'blast_swing', fmt: v => (v * 100).toFixed(1) + '%' },
+      { key: 'Whiff/Sw', label: 'Whiff↓',   hint: '每揮棒揮空率（越低越好）', rawKey: 'whiff_swing', fmt: v => (v * 100).toFixed(1) + '%', lowerBetter: true },
+    ],
+  },
 ]
 
 function prBarColor(val) {
@@ -22,61 +59,76 @@ function prBarColor(val) {
   return 'bg-red-600'
 }
 
-function SavantPRChart({ savantPr }) {
-  if (!savantPr || Object.keys(savantPr).length === 0) return null
-  const rows = SAVANT_PR_METRICS.filter(m => savantPr[m.key] !== null && savantPr[m.key] !== undefined)
-  if (rows.length === 0) return null
+function prTextColor(val) {
+  if (val >= 80) return 'text-green-400'
+  if (val >= 60) return 'text-green-300'
+  if (val >= 40) return 'text-yellow-400'
+  if (val >= 20) return 'text-orange-400'
+  return 'text-red-400'
+}
+
+function SavantPRChart({ savantPr, player }) {
+  if (!savantPr) return null
+
+  const sectionsWithData = PR_SECTIONS.map(section => ({
+    ...section,
+    metrics: section.metrics.filter(
+      m => savantPr[m.key] !== null && savantPr[m.key] !== undefined
+    ),
+  })).filter(s => s.metrics.length > 0)
+
+  if (sectionsWithData.length === 0) return null
 
   return (
-    <div>
-      <h4 className="text-xs text-slate-400 mb-2">進階數據 PR 排名（vs 全聯盟）</h4>
-      <div className="space-y-2">
-        {rows.map(({ key, label, hint }) => {
-          const val = savantPr[key]
-          const pct = Math.min(100, Math.max(0, val))
-          return (
-            <div key={key} className="flex items-center gap-2">
-              <div className="w-16 shrink-0 text-right">
-                <span className="text-xs font-mono text-slate-300" title={hint}>{label}</span>
-              </div>
-              <div className="flex-1 bg-slate-700 rounded-full h-3 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${prBarColor(val)}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <div className="w-8 shrink-0 text-right">
-                <span className={`text-xs font-mono font-semibold ${
-                  val >= 80 ? 'text-green-400' :
-                  val >= 60 ? 'text-green-300' :
-                  val >= 40 ? 'text-yellow-400' :
-                  val >= 20 ? 'text-orange-400' : 'text-red-400'
-                }`}>{val.toFixed(0)}</span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+    <div className="space-y-4">
+      <h4 className="text-xs text-slate-400">進階數據 PR（vs 全聯盟）</h4>
+      {sectionsWithData.map(section => (
+        <div key={section.title}>
+          <div className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">
+            {section.title}
+          </div>
+          <div className="space-y-1.5">
+            {section.metrics.map(({ key, label, hint, rawKey, fmt }) => {
+              const pr  = savantPr[key]
+              const raw = player[rawKey]
+              const pct = Math.min(100, Math.max(0, pr))
+              const hasRaw = raw !== null && raw !== undefined && !Number.isNaN(raw)
+              return (
+                <div key={key} className="flex items-center gap-2" title={hint}>
+                  <div className="w-16 shrink-0 text-right">
+                    <span className="text-xs font-mono text-slate-300">{label}</span>
+                  </div>
+                  <div className="flex-1 bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${prBarColor(pr)}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <div className="w-7 shrink-0 text-right">
+                    <span className={`text-xs font-mono font-bold ${prTextColor(pr)}`}>
+                      {pr.toFixed(0)}
+                    </span>
+                  </div>
+                  <div className="w-16 shrink-0 text-right">
+                    <span className="text-xs text-slate-500 font-mono">
+                      {hasRaw ? fmt(raw) : '—'}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
+// ── Verdict card ──────────────────────────────────────────────────
 const VERDICT_STYLE = {
   up:   { icon: '📈', label: '看漲', color: 'text-green-400', bg: 'bg-green-900/30 border-green-700' },
   hold: { icon: '➡️', label: '維持', color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-800' },
   down: { icon: '📉', label: '看跌', color: 'text-red-400', bg: 'bg-red-900/30 border-red-700' },
-}
-
-function MetricTile({ label, value, decimals = 3 }) {
-  const display = value !== null && value !== undefined
-    ? value.toFixed(decimals)
-    : '—'
-  return (
-    <div className="bg-slate-700 rounded-lg p-2 text-center">
-      <div className="text-slate-400 text-xs">{label}</div>
-      <div className="text-white font-mono text-sm font-semibold">{display}</div>
-    </div>
-  )
 }
 
 function VerdictCard({ category, verdict }) {
@@ -96,10 +148,11 @@ function VerdictCard({ category, verdict }) {
   )
 }
 
+// ── Player card ───────────────────────────────────────────────────
 function PlayerCard({ player }) {
   const [expanded, setExpanded] = useState(false)
 
-  const upCount = Object.values(player.verdicts || {}).filter(v => v.verdict === 'up').length
+  const upCount   = Object.values(player.verdicts || {}).filter(v => v.verdict === 'up').length
   const downCount = Object.values(player.verdicts || {}).filter(v => v.verdict === 'down').length
 
   return (
@@ -115,9 +168,11 @@ function PlayerCard({ player }) {
           )}
           {player.found && (
             <div className="flex gap-2 mt-1">
-              {upCount > 0 && <span className="text-green-400 text-xs">📈 {upCount} 看漲</span>}
-              {downCount > 0 && <span className="text-red-400 text-xs">📉 {downCount} 看跌</span>}
-              {upCount === 0 && downCount === 0 && <span className="text-yellow-400 text-xs">➡️ 維持</span>}
+              {upCount   > 0 && <span className="text-green-400 text-xs">📈 {upCount} 看漲</span>}
+              {downCount > 0 && <span className="text-red-400   text-xs">📉 {downCount} 看跌</span>}
+              {upCount === 0 && downCount === 0 && (
+                <span className="text-yellow-400 text-xs">➡️ 維持</span>
+              )}
             </div>
           )}
         </div>
@@ -126,77 +181,44 @@ function PlayerCard({ player }) {
 
       {expanded && player.found && (
         <div className="px-4 pb-4 space-y-4 border-t border-slate-700 pt-3">
-          {/* Overall summary */}
+          {/* Summary */}
           {player.summary && (
             <div className="bg-slate-700 rounded-xl p-3">
               <p className="text-slate-300 text-sm leading-relaxed">{player.summary}</p>
             </div>
           )}
 
-          {/* Metrics grid */}
-          <div>
-            <h4 className="text-xs text-slate-400 mb-2">擊球品質</h4>
-            <div className="grid grid-cols-3 gap-2">
-              <MetricTile label="BA" value={player.ba} />
-              <MetricTile label="xBA" value={player.xba} />
-              <MetricTile label="BABIP" value={player.babip} />
-              <MetricTile label="SLG" value={player.slg} />
-              <MetricTile label="xSLG" value={player.xslg} />
-              <MetricTile label="wOBA" value={player.woba} />
-              <MetricTile label="xwOBA" value={player.xwoba} />
-              <MetricTile label="Barrel%" value={player.brl} decimals={1} />
-              <MetricTile label="HH%" value={player.hard_hit} decimals={1} />
-              <MetricTile label="EV" value={player.ev} decimals={1} />
-              <MetricTile label="LA°" value={player.la} decimals={1} />
-            </div>
-          </div>
+          {/* PR bar chart — all sections */}
+          <SavantPRChart savantPr={player.savant_pr} player={player} />
 
-          {/* Savant PR bar chart */}
-          <SavantPRChart savantPr={player.savant_pr} />
-
-          {/* Plate discipline */}
-          {(player.o_swing != null || player.swstr != null || player.bb_pct != null) && (
+          {/* Per-category verdicts */}
+          {Object.keys(player.verdicts || {}).length > 0 && (
             <div>
-              <h4 className="text-xs text-slate-400 mb-2">選球紀律 (Plate Discipline)</h4>
-              <div className="grid grid-cols-3 gap-2">
-                <MetricTile label="Chase%" value={player.o_swing} decimals={1} />
-                <MetricTile label="Z-Swing%" value={player.z_swing} decimals={1} />
-                <MetricTile label="SwStr%" value={player.swstr} decimals={1} />
-                <MetricTile label="CSW%" value={player.csw} decimals={1} />
-                <MetricTile label="BB%" value={player.bb_pct} decimals={1} />
-                <MetricTile label="K%" value={player.k_pct} decimals={1} />
+              <h4 className="text-xs text-slate-400 mb-2">各類別預測</h4>
+              <div className="space-y-2">
+                {Object.entries(player.verdicts).map(([cat, verdict]) => (
+                  <VerdictCard key={cat} category={cat} verdict={verdict} />
+                ))}
               </div>
             </div>
           )}
-
-          {/* Per-category verdicts */}
-          <div>
-            <h4 className="text-xs text-slate-400 mb-2">各類別預測</h4>
-            <div className="space-y-2">
-              {Object.entries(player.verdicts || {}).map(([cat, verdict]) => (
-                <VerdictCard key={cat} category={cat} verdict={verdict} />
-              ))}
-            </div>
-          </div>
         </div>
       )}
     </div>
   )
 }
 
+// ── Page ──────────────────────────────────────────────────────────
 export default function SavantPage() {
   const settings = loadSettings()
-  const [names, setNames] = useState('')
+  const [names, setNames]     = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState('')
+  const [result, setResult]   = useState(null)
+  const [error, setError]     = useState('')
 
   async function handleAnalyze() {
     const nameList = names.split('\n').map(s => s.trim()).filter(Boolean)
-    if (!nameList.length) {
-      setError('請輸入球員名字')
-      return
-    }
+    if (!nameList.length) { setError('請輸入球員名字'); return }
     setError('')
     setLoading(true)
     try {
@@ -214,7 +236,7 @@ export default function SavantPage() {
       <div className="p-4 space-y-4">
         <div>
           <h1 className="text-lg font-bold text-white">Savant 運氣分析</h1>
-          <p className="text-xs text-slate-400">分析擊球品質，預測各類別走勢</p>
+          <p className="text-xs text-slate-400">擊球品質、跑壘速度、揮棒力學全面 PR 排名</p>
         </div>
 
         <div className="bg-slate-800 rounded-xl p-3">

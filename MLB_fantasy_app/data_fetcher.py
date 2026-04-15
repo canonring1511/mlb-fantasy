@@ -278,10 +278,20 @@ def get_savant_exit_velo(year: int = None, min_bbe: int = 10) -> pd.DataFrame:
             df["Name"] = df["player_name"]
         return df
 
+    def _add_derived(df: pd.DataFrame) -> pd.DataFrame:
+        """計算 GB%、FBLD% 等衍生欄位"""
+        attempts = pd.to_numeric(df.get("attempts"), errors="coerce")
+        if "gb" in df.columns:
+            df["gb_rate"] = pd.to_numeric(df["gb"], errors="coerce") / attempts * 100
+        if "fbld" in df.columns:
+            df["fbld_rate"] = pd.to_numeric(df["fbld"], errors="coerce") / attempts * 100
+        return df
+
     try:
         df = _fetch(year)
+        df = _add_derived(df)
         if len(df) < 50:
-            df_prev = _fetch(year - 1)
+            df_prev = _add_derived(_fetch(year - 1))
             existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
             df_prev_fill = df_prev[~df_prev["Name"].isin(existing_names)]
             df = pd.concat([df, df_prev_fill], ignore_index=True)
@@ -425,3 +435,70 @@ def _flip_name(name: str) -> str:
         parts = name.split(",", 1)
         return f"{parts[1].strip()} {parts[0].strip()}"
     return name
+
+
+# ─────────────────────────────────────────────────
+# Sprint Speed
+# ─────────────────────────────────────────────────
+
+def get_savant_sprint_speed(year: int = None, min_runs: int = 5) -> pd.DataFrame:
+    """從 Savant 取得衝刺速度數據（sprint_speed, hp_to_1b, bolts）"""
+    if year is None:
+        year = datetime.now().year
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/sprint_speed"
+            f"?type=batter&year={yr}&min={min_runs}&csv=true"
+        )
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        df = pd.read_csv(io.StringIO(resp.text))
+        if "last_name, first_name" in df.columns:
+            df["Name"] = df["last_name, first_name"].apply(_flip_name)
+        elif "player_name" in df.columns:
+            df["Name"] = df["player_name"]
+        return df
+
+    try:
+        df = _fetch(year)
+        if len(df) < 50:
+            df_prev = _fetch(year - 1)
+            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing_names)]], ignore_index=True)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+
+# ─────────────────────────────────────────────────
+# Bat Tracking
+# ─────────────────────────────────────────────────
+
+def get_savant_bat_tracking(year: int = None, min_swings: int = 100) -> pd.DataFrame:
+    """從 Savant 取得揮棒力學數據（avg_bat_speed, squared_up, blast, whiff 等）"""
+    if year is None:
+        year = datetime.now().year
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/bat-tracking"
+            f"?type=batter&year={yr}&min={min_swings}&csv=true"
+        )
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        df = pd.read_csv(io.StringIO(resp.text))
+        # bat-tracking CSV 用 'name' 欄位，格式為 'Last, First'
+        if "name" in df.columns:
+            df["Name"] = df["name"].apply(_flip_name)
+        return df
+
+    try:
+        df = _fetch(year)
+        if len(df) < 50:
+            df_prev = _fetch(year - 1)
+            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing_names)]], ignore_index=True)
+        return df
+    except Exception:
+        return pd.DataFrame()

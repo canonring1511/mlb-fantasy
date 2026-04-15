@@ -236,21 +236,51 @@ def analyze_savant_luck(
     player_names: list[str],
     savant_df: pd.DataFrame,
     ev_df: pd.DataFrame = None,
+    sprint_df: pd.DataFrame = None,
+    bat_tracking_df: pd.DataFrame = None,
 ) -> list[dict]:
     """
     分析球員擊球品質，對各 Fantasy 類別給出「看漲/維持/看跌」結論。
+    同時計算各進階數據的 PR 值（vs 全聯盟）。
 
     Returns:
         list of dicts, 每個 dict 代表一個球員的完整分析結果
     """
     from data_fetcher import fuzzy_match_player
 
+    # 預計算 xISO（若欄位不存在則從 xSLG - xBA 推算）
+    if not savant_df.empty and "xiso" not in savant_df.columns:
+        if "est_slg" in savant_df.columns and "est_ba" in savant_df.columns:
+            savant_df = savant_df.copy()
+            savant_df["xiso"] = (
+                pd.to_numeric(savant_df["est_slg"], errors="coerce") -
+                pd.to_numeric(savant_df["est_ba"], errors="coerce")
+            )
+
+    def fget(d, *keys, default=np.nan):
+        """從 dict 中依序嘗試多個 key，回傳第一個有效 float。"""
+        if d is None:
+            return default
+        for key in keys:
+            val = d.get(key)
+            if val is not None:
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    continue
+        return default
+
+    def _pr(val, df, col, lower=False):
+        """從指定 DataFrame 的欄位計算 PR 值。"""
+        if df is None or df.empty or col not in df.columns:
+            return np.nan
+        return compute_pr(val, pd.to_numeric(df[col], errors="coerce"), lower_is_better=lower)
+
     results = []
     for name in player_names:
         entry = {"name": name, "found": False}
 
-        s_row = None
-        e_row = None
+        s_row = e_row = sp_row = bt_row = None
 
         if not savant_df.empty:
             matched = fuzzy_match_player(name, savant_df, "Name")
@@ -264,75 +294,102 @@ def analyze_savant_luck(
                 e_row = ev_df[ev_df["Name"] == matched_ev].iloc[0].to_dict()
                 entry["found"] = True
 
-        # ── 原始數據（Savant CSV 實際欄位名稱）──
-        # expected_statistics CSV：ba, est_ba, slg, est_slg, woba, est_woba
-        # statcast leaderboard CSV：avg_hit_speed, avg_hit_angle, brl_percent, ev95percent
-        def fget(d, *keys, default=np.nan):
-            if d is None:
-                return default
-            for key in keys:
-                val = d.get(key)
-                if val is not None:
-                    try:
-                        return float(val)
-                    except (ValueError, TypeError):
-                        continue
-            return default
+        if sprint_df is not None and not sprint_df.empty:
+            matched_sp = fuzzy_match_player(name, sprint_df, "Name")
+            if matched_sp:
+                sp_row = sprint_df[sprint_df["Name"] == matched_sp].iloc[0].to_dict()
 
+        if bat_tracking_df is not None and not bat_tracking_df.empty:
+            matched_bt = fuzzy_match_player(name, bat_tracking_df, "Name")
+            if matched_bt:
+                bt_row = bat_tracking_df[bat_tracking_df["Name"] == matched_bt].iloc[0].to_dict()
+
+        # ── expected_statistics CSV ──
         ba    = fget(s_row, "ba")
         xba   = fget(s_row, "est_ba")
         slg   = fget(s_row, "slg")
         xslg  = fget(s_row, "est_slg")
         woba  = fget(s_row, "woba")
         xwoba = fget(s_row, "est_woba")
-        babip = fget(s_row, "babip")
-        brl   = fget(e_row, "brl_percent")
-        hh    = fget(e_row, "ev95percent")
-        ev    = fget(e_row, "avg_hit_speed")
-        la    = fget(e_row, "avg_hit_angle")
-        # Plate discipline 指標（O-Swing%, SwStr% 等）目前無法從 Savant CSV 取得
-        o_swing = np.nan
-        z_swing = np.nan
-        swstr   = np.nan
-        bb_pct  = np.nan
-        k_pct   = np.nan
-        csw     = np.nan
+        xiso  = fget(s_row, "xiso")
+
+        # ── statcast leaderboard CSV ──
+        brl      = fget(e_row, "brl_percent")
+        brl_pa   = fget(e_row, "brl_pa")
+        hh       = fget(e_row, "ev95percent")
+        ev       = fget(e_row, "avg_hit_speed")
+        la       = fget(e_row, "avg_hit_angle")
+        sweet    = fget(e_row, "anglesweetspotpercent")
+        avg_dist = fget(e_row, "avg_distance")
+        gb_rate  = fget(e_row, "gb_rate")
+        fbld_rate = fget(e_row, "fbld_rate")
+
+        # ── sprint speed CSV ──
+        sprint_speed = fget(sp_row, "sprint_speed")
+        hp_to_1b     = fget(sp_row, "hp_to_1b")
+        bolts        = fget(sp_row, "bolts")
+
+        # ── bat tracking CSV ──
+        bat_speed   = fget(bt_row, "avg_bat_speed")
+        hard_swing  = fget(bt_row, "hard_swing_rate")
+        squared_up  = fget(bt_row, "squared_up_per_swing")
+        blast_swing = fget(bt_row, "blast_per_swing")
+        whiff_swing = fget(bt_row, "whiff_per_swing")
+        swing_len   = fget(bt_row, "swing_length")
+
+        # Plate discipline（Savant CSV 目前不提供）
+        o_swing = babip = bb_pct = k_pct = csw = z_swing = swstr = np.nan
 
         entry.update({
+            # 打擊預期
             "ba": ba, "xba": xba,
             "slg": slg, "xslg": xslg,
             "woba": woba, "xwoba": xwoba,
-            "babip": babip, "brl": brl,
-            "o_swing": o_swing, "z_swing": z_swing,
-            "swstr": swstr, "bb_pct": bb_pct, "k_pct": k_pct, "csw": csw,
+            "xiso": xiso,
+            # 擊球品質
+            "brl": brl, "brl_pa": brl_pa,
             "hard_hit": hh, "ev": ev, "la": la,
+            "sweet": sweet, "avg_dist": avg_dist,
+            # 打球分佈
+            "gb_rate": gb_rate, "fbld_rate": fbld_rate,
+            # 跑壘速度
+            "sprint_speed": sprint_speed, "hp_to_1b": hp_to_1b, "bolts": bolts,
+            # 揮棒力學
+            "bat_speed": bat_speed, "hard_swing": hard_swing,
+            "squared_up": squared_up, "blast_swing": blast_swing,
+            "whiff_swing": whiff_swing, "swing_len": swing_len,
+            # Plate discipline（保留欄位，目前為 NaN）
+            "babip": babip, "o_swing": o_swing, "z_swing": z_swing,
+            "swstr": swstr, "bb_pct": bb_pct, "k_pct": k_pct, "csw": csw,
         })
 
-        # ── Savant PR 值（與全聯盟球員比較的百分位排名）──
-        savant_pr = {}
-        if not savant_df.empty:
-            for label, col, val in [
-                ("xBA",   "est_ba",   xba),
-                ("xSLG",  "est_slg",  xslg),
-                ("xwOBA", "est_woba", xwoba),
-                ("BABIP", "babip",    babip),
-            ]:
-                if col in savant_df.columns:
-                    savant_pr[label] = compute_pr(
-                        val,
-                        pd.to_numeric(savant_df[col], errors="coerce"),
-                    )
-        if ev_df is not None and not ev_df.empty:
-            for label, col, val in [
-                ("Barrel%", "brl_percent",   brl),
-                ("HH%",     "ev95percent",   hh),
-                ("EV",      "avg_hit_speed", ev),
-            ]:
-                if col in ev_df.columns:
-                    savant_pr[label] = compute_pr(
-                        val,
-                        pd.to_numeric(ev_df[col], errors="coerce"),
-                    )
+        # ── 全聯盟 PR 值 ──
+        savant_pr = {
+            # 預期數據
+            "xBA":    _pr(xba,   savant_df, "est_ba"),
+            "xSLG":   _pr(xslg,  savant_df, "est_slg"),
+            "xwOBA":  _pr(xwoba, savant_df, "est_woba"),
+            "xISO":   _pr(xiso,  savant_df, "xiso"),
+            # 擊球品質
+            "Barrel%":  _pr(brl,      ev_df, "brl_percent"),
+            "Brl/PA":   _pr(brl_pa,   ev_df, "brl_pa"),
+            "HH%":      _pr(hh,       ev_df, "ev95percent"),
+            "EV":       _pr(ev,       ev_df, "avg_hit_speed"),
+            "Sweet%":   _pr(sweet,    ev_df, "anglesweetspotpercent"),
+            "AvgDist":  _pr(avg_dist, ev_df, "avg_distance"),
+            # 打球分佈
+            "GB%":    _pr(gb_rate,   ev_df, "gb_rate",   lower=True),
+            "FBLD%":  _pr(fbld_rate, ev_df, "fbld_rate"),
+            # 跑壘速度
+            "Sprint":  _pr(sprint_speed, sprint_df, "sprint_speed"),
+            "HP-1B":   _pr(hp_to_1b,    sprint_df, "hp_to_1b", lower=True),
+            # 揮棒力學
+            "BatSpd":    _pr(bat_speed,   bat_tracking_df, "avg_bat_speed"),
+            "HardSwg%":  _pr(hard_swing,  bat_tracking_df, "hard_swing_rate"),
+            "Sqd/Sw":    _pr(squared_up,  bat_tracking_df, "squared_up_per_swing"),
+            "Blast/Sw":  _pr(blast_swing, bat_tracking_df, "blast_per_swing"),
+            "Whiff/Sw":  _pr(whiff_swing, bat_tracking_df, "whiff_per_swing", lower=True),
+        }
         entry["savant_pr"] = savant_pr
 
         # ── 各類別結論 ──
