@@ -26,6 +26,14 @@ const PR_SECTIONS = [
     ],
   },
   {
+    title: '選球紀律',
+    metrics: [
+      { key: 'BABIP', label: 'BABIP', hint: '場內球打擊率（運氣指標）', rawKey: 'babip', fmt: v => v.toFixed(3) },
+      { key: 'BB%',   label: 'BB%',   hint: '四壞球率',                 rawKey: 'bb_pct', fmt: v => v.toFixed(1) + '%' },
+      { key: 'K%',    label: 'K%↓',   hint: '三振率（越低越好）',        rawKey: 'k_pct',  fmt: v => v.toFixed(1) + '%', lowerBetter: true },
+    ],
+  },
+  {
     title: '打球分佈',
     metrics: [
       { key: 'FBLD%', label: 'FBLD%', hint: '飛球+平飛球率（越高越好）', rawKey: 'fbld_rate', fmt: v => v.toFixed(1) + '%' },

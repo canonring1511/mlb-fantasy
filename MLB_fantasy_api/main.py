@@ -339,9 +339,11 @@ def analyze_savant(req: SavantRequest):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Savant fetch failed: {e}")
 
+    mlb_df = _get_batters(req.year, "season")
     results = analyze_savant_luck(
         req.player_names, savant_df, ev_df,
         sprint_df=sprint_df, bat_tracking_df=bat_tracking_df,
+        mlb_df=mlb_df,
     )
 
     def _sanitize(val):

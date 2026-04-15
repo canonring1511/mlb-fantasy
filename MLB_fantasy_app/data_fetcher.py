@@ -37,22 +37,24 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; fantasy-baseball-analyzer/1.0
 # ── MLB API 欄位對應 ──────────────────────────────
 # MLB API 回傳名稱 → 我們用的欄位名稱
 HITTING_COL_MAP = {
-    "runs":             "R",
-    "homeRuns":         "HR",
-    "rbi":              "RBI",
-    "stolenBases":      "SB",
-    "avg":              "AVG",
-    "obp":              "OBP",
-    "slg":              "SLG",
-    "ops":              "OPS",
-    "hits":             "H",
-    "doubles":          "2B",
-    "triples":          "3B",
-    "baseOnBalls":      "B",    # 打者四壞球數
-    "strikeOuts":       "K",    # 打者被三振數
-    "plateAppearances": "PA",
-    "atBats":           "AB",
-    "gamesPlayed":      "G",
+    "runs":                "R",
+    "homeRuns":            "HR",
+    "rbi":                 "RBI",
+    "stolenBases":         "SB",
+    "avg":                 "AVG",
+    "obp":                 "OBP",
+    "slg":                 "SLG",
+    "ops":                 "OPS",
+    "hits":                "H",
+    "doubles":             "2B",
+    "triples":             "3B",
+    "baseOnBalls":         "B",    # 打者四壞球數
+    "strikeOuts":          "K",    # 打者被三振數
+    "plateAppearances":    "PA",
+    "atBats":              "AB",
+    "gamesPlayed":         "G",
+    "babip":               "BABIP",          # 場內球打擊率
+    "groundOutsToAirouts": "GOFB",           # GB/FB 比
 }
 
 PITCHING_COL_MAP = {
@@ -145,6 +147,12 @@ def _fetch_mlb_stats(
     # IP 可能是 "5.2" 格式（5又2/3局），轉成真正的局數
     if "IP" in df.columns:
         df["IP"] = df["IP"].apply(_parse_ip)
+
+    # 打者衍生欄位：K% 和 BB%
+    if group == "hitting" and "K" in df.columns and "PA" in df.columns:
+        pa = pd.to_numeric(df["PA"], errors="coerce")
+        df["K_PCT"] = pd.to_numeric(df["K"], errors="coerce") / pa * 100
+        df["BB_PCT"] = pd.to_numeric(df["B"], errors="coerce") / pa * 100
 
     return df
 

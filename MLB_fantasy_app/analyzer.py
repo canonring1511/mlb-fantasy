@@ -238,6 +238,7 @@ def analyze_savant_luck(
     ev_df: pd.DataFrame = None,
     sprint_df: pd.DataFrame = None,
     bat_tracking_df: pd.DataFrame = None,
+    mlb_df: pd.DataFrame = None,
 ) -> list[dict]:
     """
     分析球員擊球品質，對各 Fantasy 類別給出「看漲/維持/看跌」結論。
@@ -280,7 +281,7 @@ def analyze_savant_luck(
     for name in player_names:
         entry = {"name": name, "found": False}
 
-        s_row = e_row = sp_row = bt_row = None
+        s_row = e_row = sp_row = bt_row = m_row = None
 
         if not savant_df.empty:
             matched = fuzzy_match_player(name, savant_df, "Name")
@@ -303,6 +304,11 @@ def analyze_savant_luck(
             matched_bt = fuzzy_match_player(name, bat_tracking_df, "Name")
             if matched_bt:
                 bt_row = bat_tracking_df[bat_tracking_df["Name"] == matched_bt].iloc[0].to_dict()
+
+        if mlb_df is not None and not mlb_df.empty:
+            matched_m = fuzzy_match_player(name, mlb_df, "Name")
+            if matched_m:
+                m_row = mlb_df[mlb_df["Name"] == matched_m].iloc[0].to_dict()
 
         # ── expected_statistics CSV ──
         ba    = fget(s_row, "ba")
@@ -337,8 +343,13 @@ def analyze_savant_luck(
         whiff_swing = fget(bt_row, "whiff_per_swing")
         swing_len   = fget(bt_row, "swing_length")
 
+        # ── MLB Stats API（BABIP, K%, BB%）──
+        babip  = fget(m_row, "BABIP")
+        k_pct  = fget(m_row, "K_PCT")
+        bb_pct = fget(m_row, "BB_PCT")
+
         # Plate discipline（Savant CSV 目前不提供）
-        o_swing = babip = bb_pct = k_pct = csw = z_swing = swstr = np.nan
+        o_swing = csw = z_swing = swstr = np.nan
 
         entry.update({
             # 打擊預期
@@ -370,6 +381,10 @@ def analyze_savant_luck(
             "xSLG":   _pr(xslg,  savant_df, "est_slg"),
             "xwOBA":  _pr(xwoba, savant_df, "est_woba"),
             "xISO":   _pr(xiso,  savant_df, "xiso"),
+            # 選球紀律（MLB Stats API）
+            "BABIP":  _pr(babip, mlb_df, "BABIP"),
+            "BB%":    _pr(bb_pct, mlb_df, "BB_PCT"),
+            "K%":     _pr(k_pct,  mlb_df, "K_PCT", lower=True),
             # 擊球品質
             "Barrel%":  _pr(brl,      ev_df, "brl_percent"),
             "Brl/PA":   _pr(brl_pa,   ev_df, "brl_pa"),
