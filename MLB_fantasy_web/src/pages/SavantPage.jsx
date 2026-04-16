@@ -34,10 +34,8 @@ const PR_SECTIONS = [
     metrics: [
       { key: 'BABIP', label: 'BABIP', rawKey: 'babip',  fmt: v => v.toFixed(3),
         formula: '(安打 − 全壘打) ÷ (打數 − 三振 − 全壘打)，反映運氣成分' },
-      { key: 'BB%',   label: 'BB%',   rawKey: 'bb_pct', fmt: v => v.toFixed(1) + '%',
-        formula: '四壞球 ÷ 打席數' },
-      { key: 'K%',    label: 'K%↓',   rawKey: 'k_pct',  fmt: v => v.toFixed(1) + '%',
-        formula: '三振 ÷ 打席數（越低越好）', lowerBetter: true },
+      { key: 'BB%',   label: 'BB%',   rawKey: 'bb_pct', fmt: v => v.toFixed(1) + '%' },
+      { key: 'K%',    label: 'K%↓',   rawKey: 'k_pct',  fmt: v => v.toFixed(1) + '%', lowerBetter: true },
     ],
   },
   {
@@ -127,8 +125,8 @@ function SavantPRChart({ savantPr, player }) {
                     </div>
                   </div>
                   {formula && (
-                    <div className="ml-[72px]">
-                      <span className="text-slate-600 text-[10px] leading-none">{formula}</span>
+                    <div className="ml-[72px] -mt-px">
+                      <span className="text-slate-500 text-[10px] leading-[1]">{formula}</span>
                     </div>
                   )}
                 </div>
