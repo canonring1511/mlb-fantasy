@@ -102,33 +102,33 @@ function SavantPRChart({ savantPr, player }) {
               const pct = Math.min(100, Math.max(0, pr))
               const hasRaw = raw !== null && raw !== undefined && !Number.isNaN(raw)
               return (
-                <div key={key}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-16 shrink-0 text-right">
-                      <span className="text-xs font-mono text-slate-300">{label}</span>
-                    </div>
-                    <div className="flex-1 bg-slate-700 rounded-full h-2 overflow-hidden">
+                <div key={key} className="flex items-start gap-2 py-0.5">
+                  {/* 左欄：label + formula 疊放 */}
+                  <div className="w-16 shrink-0 text-right">
+                    <div className="text-xs font-mono text-slate-300 leading-none">{label}</div>
+                    {formula && (
+                      <div className="text-[9px] text-slate-500 leading-tight mt-0.5">{formula}</div>
+                    )}
+                  </div>
+                  {/* bar 垂直置中對齊 label 那行 */}
+                  <div className="flex-1 mt-[5px]">
+                    <div className="bg-slate-700 rounded-full h-2 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${prBarColor(pr)}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <div className="w-7 shrink-0 text-right">
-                      <span className={`text-xs font-mono font-bold ${prTextColor(pr)}`}>
-                        {pr.toFixed(0)}
-                      </span>
-                    </div>
-                    <div className="w-16 shrink-0 text-right">
-                      <span className="text-xs text-slate-500 font-mono">
-                        {hasRaw ? fmt(raw) : '—'}
-                      </span>
-                    </div>
                   </div>
-                  {formula && (
-                    <div className="ml-[72px] -mt-px">
-                      <span className="text-slate-500 text-[10px] leading-[1]">{formula}</span>
-                    </div>
-                  )}
+                  <div className="w-7 shrink-0 text-right mt-[2px]">
+                    <span className={`text-xs font-mono font-bold ${prTextColor(pr)}`}>
+                      {pr.toFixed(0)}
+                    </span>
+                  </div>
+                  <div className="w-16 shrink-0 text-right mt-[2px]">
+                    <span className="text-xs text-slate-500 font-mono">
+                      {hasRaw ? fmt(raw) : '—'}
+                    </span>
+                  </div>
                 </div>
               )
             })}
