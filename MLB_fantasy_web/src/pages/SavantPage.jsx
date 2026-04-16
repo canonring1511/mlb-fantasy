@@ -97,26 +97,26 @@ function SavantPRChart({ savantPr, player }) {
   if (sectionsWithData.length === 0) return null
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h4 className="text-xs text-slate-400">進階數據 PR（vs 全聯盟）</h4>
       {sectionsWithData.map(section => (
         <div key={section.title}>
-          <div className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">
+          <div className="text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">
             {section.title}
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-0.5">
             {section.metrics.map(({ key, label, rawKey, fmt, formula }) => {
               const pr  = savantPr[key]
               const raw = player[rawKey]
               const pct = Math.min(100, Math.max(0, pr))
               const hasRaw = raw !== null && raw !== undefined && !Number.isNaN(raw)
               return (
-                <div key={key} className="mb-1">
+                <div key={key}>
                   <div className="flex items-center gap-2">
                     <div className="w-16 shrink-0 text-right">
                       <span className="text-xs font-mono text-slate-300">{label}</span>
                     </div>
-                    <div className="flex-1 bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                    <div className="flex-1 bg-slate-700 rounded-full h-2 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${prBarColor(pr)}`}
                         style={{ width: `${pct}%` }}
@@ -134,8 +134,8 @@ function SavantPRChart({ savantPr, player }) {
                     </div>
                   </div>
                   {formula && (
-                    <div className="ml-[72px] mt-0.5">
-                      <span className="text-slate-600 text-xs leading-tight">{formula}</span>
+                    <div className="ml-[72px]">
+                      <span className="text-slate-600 text-[10px] leading-none">{formula}</span>
                     </div>
                   )}
                 </div>
