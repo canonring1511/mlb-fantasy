@@ -97,14 +97,14 @@ function SavantPRChart({ savantPr, player }) {
   if (sectionsWithData.length === 0) return null
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <h4 className="text-xs text-slate-400">進階數據 PR（vs 全聯盟）</h4>
       {sectionsWithData.map(section => (
         <div key={section.title}>
-          <div className="text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">
+          <div className="text-[10px] font-semibold text-slate-500 mb-0.5 uppercase tracking-wide">
             {section.title}
           </div>
-          <div className="space-y-0.5">
+          <div>
             {section.metrics.map(({ key, label, rawKey, fmt, formula }) => {
               const pr  = savantPr[key]
               const raw = player[rawKey]
