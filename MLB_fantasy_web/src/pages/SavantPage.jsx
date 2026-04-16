@@ -41,13 +41,6 @@ const PR_SECTIONS = [
     ],
   },
   {
-    title: '打球分佈',
-    metrics: [
-      { key: 'GB%', label: 'GB%↓', rawKey: 'gb_rate', fmt: v => v.toFixed(1) + '%',
-        formula: '滾地球數 ÷ 場內球總數（越低對長打越有利）', lowerBetter: true },
-    ],
-  },
-  {
     title: '跑壘速度',
     metrics: [
       { key: 'Sprint', label: 'Sprint', rawKey: 'sprint_speed', fmt: v => v.toFixed(1) + ' ft/s' },

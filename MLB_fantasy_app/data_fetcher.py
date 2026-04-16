@@ -286,20 +286,10 @@ def get_savant_exit_velo(year: int = None, min_bbe: int = 10) -> pd.DataFrame:
             df["Name"] = df["player_name"]
         return df
 
-    def _add_derived(df: pd.DataFrame) -> pd.DataFrame:
-        """計算 GB%、FBLD% 等衍生欄位"""
-        attempts = pd.to_numeric(df.get("attempts"), errors="coerce")
-        if "gb" in df.columns:
-            df["gb_rate"] = pd.to_numeric(df["gb"], errors="coerce") / attempts * 100
-        if "fbld" in df.columns:
-            df["fbld_rate"] = pd.to_numeric(df["fbld"], errors="coerce") / attempts * 100
-        return df
-
     try:
         df = _fetch(year)
-        df = _add_derived(df)
         if len(df) < 50:
-            df_prev = _add_derived(_fetch(year - 1))
+            df_prev = _fetch(year - 1)
             existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
             df_prev_fill = df_prev[~df_prev["Name"].isin(existing_names)]
             df = pd.concat([df, df_prev_fill], ignore_index=True)

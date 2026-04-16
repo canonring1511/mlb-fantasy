@@ -327,8 +327,6 @@ def analyze_savant_luck(
         la       = fget(e_row, "avg_hit_angle")
         sweet    = fget(e_row, "anglesweetspotpercent")
         avg_dist = fget(e_row, "avg_distance")
-        gb_rate  = fget(e_row, "gb_rate")
-        fbld_rate = fget(e_row, "fbld_rate")
 
         # ── sprint speed CSV ──
         sprint_speed = fget(sp_row, "sprint_speed")
@@ -361,8 +359,6 @@ def analyze_savant_luck(
             "brl": brl, "brl_pa": brl_pa,
             "hard_hit": hh, "ev": ev, "la": la,
             "sweet": sweet, "avg_dist": avg_dist,
-            # 打球分佈
-            "gb_rate": gb_rate, "fbld_rate": fbld_rate,
             # 跑壘速度
             "sprint_speed": sprint_speed, "hp_to_1b": hp_to_1b, "bolts": bolts,
             # 揮棒力學
@@ -392,9 +388,6 @@ def analyze_savant_luck(
             "EV":       _pr(ev,       ev_df, "avg_hit_speed"),
             "Sweet%":   _pr(sweet,    ev_df, "anglesweetspotpercent"),
             "AvgDist":  _pr(avg_dist, ev_df, "avg_distance"),
-            # 打球分佈
-            "GB%":    _pr(gb_rate,   ev_df, "gb_rate",   lower=True),
-            "FBLD%":  _pr(fbld_rate, ev_df, "fbld_rate"),
             # 跑壘速度
             "Sprint":  _pr(sprint_speed, sprint_df, "sprint_speed"),
             "HP-1B":   _pr(hp_to_1b,    sprint_df, "hp_to_1b", lower=True),
