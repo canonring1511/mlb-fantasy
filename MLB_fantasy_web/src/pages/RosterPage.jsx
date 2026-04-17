@@ -48,20 +48,44 @@ export default function RosterPage() {
   }
 
   async function handleOCR(e) {
-    const file = e.target.files[0]
-    if (!file) return
+    const files = Array.from(e.target.files)
+    if (!files.length) return
     setOcrLoading(true)
     setError('')
-    try {
-      const data = await ocrRoster(file)
-      if (data.batters?.length) setBatters(data.batters.join('\n'))
-      if (data.pitchers?.length) setPitchers(data.pitchers.join('\n'))
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setOcrLoading(false)
-      e.target.value = ''
+
+    // 用現有名單作為起始集合（去重用）
+    let newBatters  = batters.split('\n').map(s => s.trim()).filter(Boolean)
+    let newPitchers = pitchers.split('\n').map(s => s.trim()).filter(Boolean)
+    const seenB = new Set(newBatters.map(n => n.toLowerCase()))
+    const seenP = new Set(newPitchers.map(n => n.toLowerCase()))
+
+    let failCount = 0
+    for (const file of files) {
+      try {
+        const data = await ocrRoster(file)
+        for (const name of (data.batters || [])) {
+          if (name && !seenB.has(name.toLowerCase())) {
+            newBatters.push(name)
+            seenB.add(name.toLowerCase())
+          }
+        }
+        for (const name of (data.pitchers || [])) {
+          if (name && !seenP.has(name.toLowerCase())) {
+            newPitchers.push(name)
+            seenP.add(name.toLowerCase())
+          }
+        }
+      } catch (err) {
+        failCount++
+      }
     }
+
+    if (newBatters.length)  setBatters(newBatters.join('\n'))
+    if (newPitchers.length) setPitchers(newPitchers.join('\n'))
+    if (failCount > 0) setError(`${failCount} 張截圖辨識失敗，其餘已加入`)
+
+    setOcrLoading(false)
+    e.target.value = ''
   }
 
   function handleSave() {
@@ -142,6 +166,7 @@ export default function RosterPage() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={handleOCR}
           />
@@ -150,7 +175,7 @@ export default function RosterPage() {
             disabled={ocrLoading}
             className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
           >
-            {ocrLoading ? '識別中...' : '📸 上傳截圖（自動 OCR）'}
+            {ocrLoading ? '識別中...' : '📸 上傳截圖（可多張）'}
           </button>
         </div>
 
