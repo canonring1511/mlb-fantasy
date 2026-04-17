@@ -85,14 +85,24 @@ def _set_cache(key: str, df: pd.DataFrame):
     _cache[key] = {"df": df, "ts": datetime.now()}
 
 
+def _period_days(period: str) -> int | None:
+    """Return number of days for a rolling-window period, or None for full season."""
+    if period == "30d":
+        return 30
+    if period == "14d":
+        return 14
+    return None
+
+
 def _get_batters(year: int, period: str) -> pd.DataFrame:
     key = _cache_key("batters", year, period)
     df = _get_cached_df(key)
     if df is not None:
         return df
-    if period == "30d":
+    days = _period_days(period)
+    if days:
         end = datetime.now()
-        start = end - timedelta(days=30)
+        start = end - timedelta(days=days)
         df = _fetch_mlb_stats(
             "hitting", year,
             start_date=start.strftime("%Y-%m-%d"),
@@ -111,9 +121,10 @@ def _get_pitchers(year: int, period: str) -> pd.DataFrame:
     df = _get_cached_df(key)
     if df is not None:
         return df
-    if period == "30d":
+    days = _period_days(period)
+    if days:
         end = datetime.now()
-        start = end - timedelta(days=30)
+        start = end - timedelta(days=days)
         df = _fetch_mlb_stats(
             "pitching", year,
             start_date=start.strftime("%Y-%m-%d"),

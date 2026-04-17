@@ -7,7 +7,8 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import CategoryPicker from '../components/CategoryPicker'
 
 export default function RosterPage() {
-  const settings = loadSettings()
+  const [year, setYear] = useState(() => loadSettings().rosterYear || new Date().getFullYear())
+  const [period, setPeriod] = useState(() => loadSettings().rosterPeriod || 'season')
   const [batters, setBatters] = useState('')
   const [pitchers, setPitchers] = useState('')
   const [bCats, setBCats] = useState(
@@ -17,6 +18,14 @@ export default function RosterPage() {
     () => loadSettings().rosterPitchingCategories || ['W','SV','ERA','WHIP','SO','HLD','BB','IP']
   )
 
+  function handleYearChange(y) {
+    setYear(y)
+    saveSettings({ ...loadSettings(), rosterYear: y })
+  }
+  function handlePeriodChange(p) {
+    setPeriod(p)
+    saveSettings({ ...loadSettings(), rosterPeriod: p })
+  }
   function handleBCatsChange(cats) {
     setBCats(cats)
     saveSettings({ ...loadSettings(), rosterBattingCategories: cats })
@@ -51,7 +60,7 @@ export default function RosterPage() {
     try {
       const data = await analyzeRoster(
         bList, pList,
-        settings.year, settings.period,
+        year, period,
         bCats,
         pCats,
       )
@@ -133,7 +142,7 @@ export default function RosterPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-white">我的陣容分析</h1>
-            <p className="text-xs text-slate-400">{settings.year} · {settings.period === 'season' ? '全季' : '近30天'}</p>
+            <p className="text-xs text-slate-400">{year} · {period === 'season' ? '全季' : period === '14d' ? '近14天' : '近30天'}</p>
           </div>
           <button
             onClick={() => setShowSaved(!showSaved)}
@@ -188,7 +197,7 @@ export default function RosterPage() {
             disabled={ocrLoading}
             className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
           >
-            {ocrLoading ? '識別中...' : '📸 上傳截圖（可多張）'}
+            {ocrLoading ? '識別中...' : '📸 上傳截圖識別球員（可多張）'}
           </button>
         </div>
 
@@ -248,10 +257,10 @@ export default function RosterPage() {
 
         {/* Category picker */}
         <CategoryPicker
-          batting={bCats}
-          pitching={pCats}
-          onBattingChange={handleBCatsChange}
-          onPitchingChange={handlePCatsChange}
+          year={year} period={period}
+          onYearChange={handleYearChange} onPeriodChange={handlePeriodChange}
+          batting={bCats} pitching={pCats}
+          onBattingChange={handleBCatsChange} onPitchingChange={handlePCatsChange}
         />
 
         {/* Analyze button */}

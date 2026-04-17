@@ -9,10 +9,13 @@ const DEFAULT_BATTING  = ['H', 'HR', 'RBI', 'SB', 'AVG', 'BB', '2B', '3B', 'K']
 const DEFAULT_PITCHING = ['W', 'SV', 'ERA', 'WHIP', 'SO', 'HLD', 'BB', 'IP']
 
 function _defaults() {
+  const yr = new Date().getFullYear()
   return {
     geminiKey: '',
-    year: new Date().getFullYear(),
-    period: 'season',
+    // Per-page year & period
+    rosterYear:   yr,    rosterPeriod: 'season',
+    faYear:       yr,    faPeriod:     'season',
+    savantYear:   yr,
     // Per-page categories (roster page vs FA page)
     rosterBattingCategories:  [...DEFAULT_BATTING],
     rosterPitchingCategories: [...DEFAULT_PITCHING],
@@ -29,6 +32,12 @@ export function loadSettings() {
     if (raw) {
       const parsed = JSON.parse(raw)
       const defs = _defaults()
+      // Migrate old global year/period → per-page keys
+      if (!parsed.rosterYear)   parsed.rosterYear   = parsed.year   || defs.rosterYear
+      if (!parsed.rosterPeriod) parsed.rosterPeriod = parsed.period || defs.rosterPeriod
+      if (!parsed.faYear)       parsed.faYear       = parsed.year   || defs.faYear
+      if (!parsed.faPeriod)     parsed.faPeriod     = parsed.period || defs.faPeriod
+      if (!parsed.savantYear)   parsed.savantYear   = parsed.year   || defs.savantYear
       // Migrate old per-global battingCategories → per-page keys if not yet set
       if (!parsed.rosterBattingCategories) {
         parsed.rosterBattingCategories = parsed.battingCategories || defs.rosterBattingCategories

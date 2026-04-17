@@ -32,32 +32,8 @@ export default function SettingsPage() {
           />
         </section>
 
-        {/* Year & Period */}
-        <section className="bg-slate-800 rounded-xl p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-300">數據設定</h2>
-          <p className="text-xs text-slate-400">計分類別設定已移至各功能頁面，可在「我的陣容」和「FA 分析」頁面分別設定。</p>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="text-xs text-slate-400 block mb-1">賽季年份</label>
-              <input
-                type="number"
-                value={settings.year}
-                onChange={e => setSettings(p => ({ ...p, year: parseInt(e.target.value) }))}
-                className="w-full bg-slate-900 text-slate-200 text-sm px-3 py-2.5 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="text-xs text-slate-400 block mb-1">時間範圍</label>
-              <select
-                value={settings.period}
-                onChange={e => setSettings(p => ({ ...p, period: e.target.value }))}
-                className="w-full bg-slate-900 text-slate-200 text-sm px-3 py-2.5 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500"
-              >
-                <option value="season">全季</option>
-                <option value="30d">近 30 天</option>
-              </select>
-            </div>
-          </div>
+        <section className="bg-slate-800 rounded-xl p-4">
+          <p className="text-xs text-slate-400">年份、時間範圍、計分類別設定已移至各功能頁面，可在「我的陣容」、「FA 分析」和「Savant 分析」分別設定。</p>
         </section>
 
         {/* Save */}

@@ -6,9 +6,9 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import CategoryPicker from '../components/CategoryPicker'
 
 export default function FAPage() {
-  const settings = loadSettings()
-
-  // ── Per-page category state ──────────────────────
+  // ── Per-page data settings ───────────────────────
+  const [year, setYear] = useState(() => loadSettings().faYear || new Date().getFullYear())
+  const [period, setPeriod] = useState(() => loadSettings().faPeriod || 'season')
   const [bCats, setBCats] = useState(
     () => loadSettings().faBattingCategories || ['H','HR','RBI','SB','AVG','BB','2B','3B','K']
   )
@@ -16,6 +16,14 @@ export default function FAPage() {
     () => loadSettings().faPitchingCategories || ['W','SV','ERA','WHIP','SO','HLD','BB','IP']
   )
 
+  function handleYearChange(y) {
+    setYear(y)
+    saveSettings({ ...loadSettings(), faYear: y })
+  }
+  function handlePeriodChange(p) {
+    setPeriod(p)
+    saveSettings({ ...loadSettings(), faPeriod: p })
+  }
   function handleBCatsChange(cats) {
     setBCats(cats)
     saveSettings({ ...loadSettings(), faBattingCategories: cats })
@@ -65,7 +73,7 @@ export default function FAPage() {
     try {
       const data = await analyzeFA(
         bList, pList,
-        settings.year, settings.period,
+        year, period,
         bCats, pCats,
       )
       setResult(data)
@@ -127,7 +135,7 @@ export default function FAPage() {
       const data = await analyzeAddDrop(
         adRoster.batters, adRoster.pitchers,
         adDropPlayer, adAddPlayer.trim(), adDropType,
-        settings.year, settings.period,
+        year, period,
         bCats, pCats,
       )
       setAdResult(data)
@@ -151,7 +159,7 @@ export default function FAPage() {
       <div className="p-4 space-y-4">
         <div>
           <h1 className="text-lg font-bold text-white">FA 球員分析</h1>
-          <p className="text-xs text-slate-400">{settings.year} · {settings.period === 'season' ? '全季' : '近30天'} · 依 PR 排名</p>
+          <p className="text-xs text-slate-400">{year} · {period === 'season' ? '全季' : period === '14d' ? '近14天' : '近30天'} · 依 PR 排名</p>
         </div>
 
         {/* Top-level tabs: FA Analysis | Add/Drop */}
@@ -188,7 +196,7 @@ export default function FAPage() {
                 disabled={ocrLoading}
                 className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
               >
-                {ocrLoading ? '識別中...' : '📸 上傳截圖（自動 OCR）'}
+                {ocrLoading ? '識別中...' : '📸 上傳截圖識別球員'}
               </button>
             </div>
 
@@ -231,10 +239,10 @@ export default function FAPage() {
 
             {/* Category picker */}
             <CategoryPicker
-              batting={bCats}
-              pitching={pCats}
-              onBattingChange={handleBCatsChange}
-              onPitchingChange={handlePCatsChange}
+              year={year} period={period}
+              onYearChange={handleYearChange} onPeriodChange={handlePeriodChange}
+              batting={bCats} pitching={pCats}
+              onBattingChange={handleBCatsChange} onPitchingChange={handlePCatsChange}
             />
 
             <button
@@ -356,10 +364,10 @@ export default function FAPage() {
 
             {/* Category picker */}
             <CategoryPicker
-              batting={bCats}
-              pitching={pCats}
-              onBattingChange={handleBCatsChange}
-              onPitchingChange={handlePCatsChange}
+              year={year} period={period}
+              onYearChange={handleYearChange} onPeriodChange={handlePeriodChange}
+              batting={bCats} pitching={pCats}
+              onBattingChange={handleBCatsChange} onPitchingChange={handlePCatsChange}
             />
 
             {adRoster && (

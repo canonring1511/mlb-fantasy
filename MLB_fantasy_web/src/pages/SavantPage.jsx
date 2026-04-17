@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { analyzeSavant } from '../api'
-import { loadSettings } from '../store'
+import { loadSettings, saveSettings } from '../store'
 import LoadingSpinner from '../components/LoadingSpinner'
+import CategoryPicker from '../components/CategoryPicker'
 
 // ── PR bar chart sections ──────────────────────────────────────────
 // formula 欄位：顯示在 bar 下方的計算說明（手機上 hint/tooltip 沒用）
@@ -225,11 +226,16 @@ function PlayerCard({ player }) {
 
 // ── Page ──────────────────────────────────────────────────────────
 export default function SavantPage() {
-  const settings = loadSettings()
+  const [year, setYear]       = useState(() => loadSettings().savantYear || new Date().getFullYear())
   const [names, setNames]     = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult]   = useState(null)
   const [error, setError]     = useState('')
+
+  function handleYearChange(y) {
+    setYear(y)
+    saveSettings({ ...loadSettings(), savantYear: y })
+  }
 
   async function handleAnalyze() {
     const nameList = names.split('\n').map(s => s.trim()).filter(Boolean)
@@ -237,7 +243,7 @@ export default function SavantPage() {
     setError('')
     setLoading(true)
     try {
-      const data = await analyzeSavant(nameList, settings.year)
+      const data = await analyzeSavant(nameList, year)
       setResult(data.players)
     } catch (e) {
       setError(e.response?.data?.detail || e.message)
@@ -251,7 +257,7 @@ export default function SavantPage() {
       <div className="p-4 space-y-4">
         <div>
           <h1 className="text-lg font-bold text-white">Savant 運氣分析</h1>
-          <p className="text-xs text-slate-400">擊球品質、跑壘速度、揮棒力學全面 PR 排名</p>
+          <p className="text-xs text-slate-400">{year} · 擊球品質、跑壘速度、揮棒力學全面 PR 排名</p>
         </div>
 
         <div className="bg-slate-800 rounded-xl p-3">
@@ -263,6 +269,12 @@ export default function SavantPage() {
             className="w-full bg-slate-900 text-slate-200 text-sm p-2 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500 resize-none"
           />
         </div>
+
+        {/* Year picker — Savant is batters-only, no period */}
+        <CategoryPicker
+          year={year} onYearChange={handleYearChange}
+          showPeriod={false} showPitching={false}
+        />
 
         <button
           onClick={handleAnalyze}
