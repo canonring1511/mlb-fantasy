@@ -1,14 +1,30 @@
 import { useState, useEffect, useRef } from 'react'
 import { analyzeRoster, ocrRoster } from '../api'
-import { loadSettings, saveRoster, listRosters, loadRoster, deleteRoster } from '../store'
+import { loadSettings, saveSettings, saveRoster, listRosters, loadRoster, deleteRoster } from '../store'
 import PRTable from '../components/PRTable'
 import StrengthBar from '../components/StrengthBar'
 import LoadingSpinner from '../components/LoadingSpinner'
+import CategoryPicker from '../components/CategoryPicker'
 
 export default function RosterPage() {
   const settings = loadSettings()
   const [batters, setBatters] = useState('')
   const [pitchers, setPitchers] = useState('')
+  const [bCats, setBCats] = useState(
+    () => loadSettings().rosterBattingCategories || ['H','HR','RBI','SB','AVG','BB','2B','3B','K']
+  )
+  const [pCats, setPCats] = useState(
+    () => loadSettings().rosterPitchingCategories || ['W','SV','ERA','WHIP','SO','HLD','BB','IP']
+  )
+
+  function handleBCatsChange(cats) {
+    setBCats(cats)
+    saveSettings({ ...loadSettings(), rosterBattingCategories: cats })
+  }
+  function handlePCatsChange(cats) {
+    setPCats(cats)
+    saveSettings({ ...loadSettings(), rosterPitchingCategories: cats })
+  }
   const [loading, setLoading] = useState(false)
   const [ocrLoading, setOcrLoading] = useState(false)
   const [result, setResult] = useState(null)
@@ -36,8 +52,8 @@ export default function RosterPage() {
       const data = await analyzeRoster(
         bList, pList,
         settings.year, settings.period,
-        settings.battingCategories,
-        settings.pitchingCategories,
+        bCats,
+        pCats,
       )
       setResult(data)
     } catch (e) {
@@ -109,9 +125,6 @@ export default function RosterPage() {
     deleteRoster(name)
     setSavedRosters(listRosters())
   }
-
-  const bCats = settings.battingCategories || ['H','HR','RBI','SB','AVG','BB','2B','3B','K']
-  const pCats = settings.pitchingCategories || ['W','SV','ERA','WHIP','SO','HLD','BB','IP']
 
   return (
     <div className="page-content">
@@ -232,6 +245,14 @@ export default function RosterPage() {
             💾 儲存
           </button>
         </div>
+
+        {/* Category picker */}
+        <CategoryPicker
+          batting={bCats}
+          pitching={pCats}
+          onBattingChange={handleBCatsChange}
+          onPitchingChange={handlePCatsChange}
+        />
 
         {/* Analyze button */}
         <button

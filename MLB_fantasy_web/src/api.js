@@ -49,6 +49,25 @@ export async function analyzeSavant(playerNames, year) {
   return data
 }
 
+export async function analyzeAddDrop(
+  rosterBatters, rosterPitchers,
+  dropPlayer, addPlayer, dropType,
+  year, period, battingCats, pitchingCats
+) {
+  const { data } = await api.post('/analyze/add-drop', {
+    roster_batters: rosterBatters,
+    roster_pitchers: rosterPitchers,
+    drop_player: dropPlayer,
+    add_player: addPlayer,
+    drop_type: dropType,
+    year,
+    period,
+    batting_categories: battingCats,
+    pitching_categories: pitchingCats,
+  })
+  return data
+}
+
 export async function ocrRoster(imageFile) {
   const key = getGeminiKey()
   if (!key) throw new Error('請先在設定中輸入 Gemini API Key')

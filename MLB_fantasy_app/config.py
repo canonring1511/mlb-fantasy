@@ -5,7 +5,7 @@ Fantasy Baseball 設定檔
 
 # ── Yahoo 聯盟類別 ──────────────────────────────
 BATTING_CATEGORIES  = ["H", "HR", "RBI", "SB", "AVG", "BB", "2B", "3B", "K"]
-PITCHING_CATEGORIES = ["W", "SV", "ERA", "WHIP", "SO", "HLD", "BB", "IP"]
+PITCHING_CATEGORIES = ["W", "SV", "ERA", "WHIP", "SO", "HLD", "BB", "IP", "R"]
 # QS（Quality Starts）MLB Stats API 無法提供，已移除
 
 # ── PR 方向設定 ─────────────────────────────────
@@ -14,7 +14,7 @@ BATTING_LOWER_IS_BETTER = ["K"]
 
 # 投手：ERA、WHIP、BB（保送數）越少越好
 # 注意：打者的 BB（四壞球）是越多越好，所以分開設定
-PITCHING_LOWER_IS_BETTER = ["ERA", "WHIP", "BB"]
+PITCHING_LOWER_IS_BETTER = ["ERA", "WHIP", "BB", "R"]
 
 # ── MLB API 欄位對應表 ───────────────────────────
 # Yahoo 顯示的類別名稱 → MLB Stats API DataFrame 欄位名稱
@@ -46,6 +46,8 @@ PITCHING_FG_COLS = {
     "BB":   "B",   # 投手保送數 = API 欄位 "B"
     "IP":   "IP",
     "QS":   "QS",  # QS 查不到，PR 欄位會顯示 —
+    "R":    "R",   # 投手失分數（越少越好）
+    "L":    "L",
 }
 
 # ── Savant xStats 欄位 ──────────────────────────

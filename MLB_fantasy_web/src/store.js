@@ -5,20 +5,47 @@
 const ROSTER_KEY = 'fantasy_rosters'
 const SETTINGS_KEY = 'fantasy_settings'
 
+const DEFAULT_BATTING  = ['H', 'HR', 'RBI', 'SB', 'AVG', 'BB', '2B', '3B', 'K']
+const DEFAULT_PITCHING = ['W', 'SV', 'ERA', 'WHIP', 'SO', 'HLD', 'BB', 'IP']
+
+function _defaults() {
+  return {
+    geminiKey: '',
+    year: new Date().getFullYear(),
+    period: 'season',
+    // Per-page categories (roster page vs FA page)
+    rosterBattingCategories:  [...DEFAULT_BATTING],
+    rosterPitchingCategories: [...DEFAULT_PITCHING],
+    faBattingCategories:      [...DEFAULT_BATTING],
+    faPitchingCategories:     [...DEFAULT_PITCHING],
+  }
+}
+
 // ── Settings ─────────────────────────────────────────────
 
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      const defs = _defaults()
+      // Migrate old per-global battingCategories → per-page keys if not yet set
+      if (!parsed.rosterBattingCategories) {
+        parsed.rosterBattingCategories = parsed.battingCategories || defs.rosterBattingCategories
+      }
+      if (!parsed.rosterPitchingCategories) {
+        parsed.rosterPitchingCategories = parsed.pitchingCategories || defs.rosterPitchingCategories
+      }
+      if (!parsed.faBattingCategories) {
+        parsed.faBattingCategories = parsed.battingCategories || defs.faBattingCategories
+      }
+      if (!parsed.faPitchingCategories) {
+        parsed.faPitchingCategories = parsed.pitchingCategories || defs.faPitchingCategories
+      }
+      return { ...defs, ...parsed }
+    }
   } catch {}
-  return {
-    geminiKey: '',
-    year: new Date().getFullYear(),
-    period: 'season',
-    battingCategories: ['H', 'HR', 'RBI', 'SB', 'AVG', 'BB', '2B', '3B', 'K'],
-    pitchingCategories: ['W', 'SV', 'ERA', 'WHIP', 'SO', 'HLD', 'BB', 'IP'],
-  }
+  return _defaults()
 }
 
 export function saveSettings(settings) {

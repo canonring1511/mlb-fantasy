@@ -68,6 +68,7 @@ PITCHING_COL_MAP = {
     "inningsPitched":   "IP",
     "qualityStarts":    "QS",
     "losses":           "L",
+    "runs":             "R",    # 投手失分數（越少越好）
     "gamesPlayed":      "G",
     "gamesStarted":     "GS",
     "saveOpportunities": "SVO",

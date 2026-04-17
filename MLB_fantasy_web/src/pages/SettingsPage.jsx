@@ -1,20 +1,9 @@
 import { useState } from 'react'
 import { loadSettings, saveSettings } from '../store'
 
-const ALL_BATTING = ['H', 'HR', 'RBI', 'SB', 'AVG', 'BB', '2B', '3B', 'K', 'R', 'OBP', 'OPS']
-const ALL_PITCHING = ['W', 'SV', 'ERA', 'WHIP', 'SO', 'HLD', 'BB', 'IP', 'QS', 'L']
-
 export default function SettingsPage() {
   const [settings, setSettings] = useState(loadSettings)
   const [saved, setSaved] = useState(false)
-
-  function toggle(key, cat) {
-    setSettings(prev => {
-      const list = prev[key]
-      const next = list.includes(cat) ? list.filter(c => c !== cat) : [...list, cat]
-      return { ...prev, [key]: next }
-    })
-  }
 
   function handleSave() {
     saveSettings(settings)
@@ -46,6 +35,7 @@ export default function SettingsPage() {
         {/* Year & Period */}
         <section className="bg-slate-800 rounded-xl p-4 space-y-3">
           <h2 className="text-sm font-semibold text-slate-300">數據設定</h2>
+          <p className="text-xs text-slate-400">計分類別設定已移至各功能頁面，可在「我的陣容」和「FA 分析」頁面分別設定。</p>
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="text-xs text-slate-400 block mb-1">賽季年份</label>
@@ -67,48 +57,6 @@ export default function SettingsPage() {
                 <option value="30d">近 30 天</option>
               </select>
             </div>
-          </div>
-        </section>
-
-        {/* Batting categories */}
-        <section className="bg-slate-800 rounded-xl p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-300">打者計分類別</h2>
-          <div className="flex flex-wrap gap-2">
-            {ALL_BATTING.map(cat => {
-              const on = settings.battingCategories.includes(cat)
-              return (
-                <button
-                  key={cat}
-                  onClick={() => toggle('battingCategories', cat)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-mono font-medium transition-colors ${
-                    on ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'
-                  }`}
-                >
-                  {cat}
-                </button>
-              )
-            })}
-          </div>
-        </section>
-
-        {/* Pitching categories */}
-        <section className="bg-slate-800 rounded-xl p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-300">投手計分類別</h2>
-          <div className="flex flex-wrap gap-2">
-            {ALL_PITCHING.map(cat => {
-              const on = settings.pitchingCategories.includes(cat)
-              return (
-                <button
-                  key={cat}
-                  onClick={() => toggle('pitchingCategories', cat)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-mono font-medium transition-colors ${
-                    on ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'
-                  }`}
-                >
-                  {cat}
-                </button>
-              )
-            })}
           </div>
         </section>
 

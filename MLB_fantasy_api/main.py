@@ -27,6 +27,7 @@ from analyzer import (
     analyze_fa_players,
     analyze_pitchers,
     analyze_savant_luck,
+    compute_pr,
 )
 from config import (
     BATTING_CATEGORIES,
@@ -145,6 +146,18 @@ class PlayerListRequest(BaseModel):
 class FAAnalysisRequest(BaseModel):
     batter_names: list[str] = []
     pitcher_names: list[str] = []
+    year: int = datetime.now().year
+    period: str = "season"
+    batting_categories: list[str] = BATTING_CATEGORIES
+    pitching_categories: list[str] = PITCHING_CATEGORIES
+
+
+class AddDropRequest(BaseModel):
+    roster_batters: list[str] = []
+    roster_pitchers: list[str] = []
+    drop_player: str
+    add_player: str
+    drop_type: str = "batter"   # "batter" or "pitcher"
     year: int = datetime.now().year
     period: str = "season"
     batting_categories: list[str] = BATTING_CATEGORIES
@@ -321,6 +334,97 @@ def analyze_fa(req: FAAnalysisRequest):
         result["unmatched_pitchers"] = []
 
     return result
+
+
+# ── Add/Drop analysis endpoint ───────────────────────────
+
+@app.post("/analyze/add-drop")
+def analyze_add_drop(req: AddDropRequest):
+    """
+    Compare team PR before and after swapping one player.
+    Returns current_team_avg, new_team_avg, delta, and individual player PRs.
+    """
+    try:
+        all_batters = _get_batters(req.year, req.period)
+        all_pitchers = _get_pitchers(req.year, req.period)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"MLB API fetch failed: {e}")
+
+    is_batter = req.drop_type == "batter"
+    categories = req.batting_categories if is_batter else req.pitching_categories
+    col_map = BATTING_FG_COLS if is_batter else PITCHING_FG_COLS
+    lower_list = BATTING_LOWER_IS_BETTER if is_batter else PITCHING_LOWER_IS_BETTER
+    all_df = all_batters if is_batter else all_pitchers
+
+    # Current roster names
+    current_names = req.roster_batters if is_batter else req.roster_pitchers
+
+    # New roster: remove drop_player (case-insensitive), append add_player
+    new_names = [
+        n for n in current_names
+        if n.lower() != req.drop_player.lower()
+    ] + [req.add_player]
+
+    def _roster_avg(names):
+        if not names:
+            return {}, []
+        roster_df, unmatched = match_players_to_df(names, all_df)
+        if roster_df.empty:
+            return {cat: None for cat in categories}, unmatched
+        if is_batter:
+            analysis = analyze_batters(roster_df, all_df, time_period=req.period, categories=categories)
+        else:
+            analysis = analyze_pitchers(roster_df, all_df, time_period=req.period, categories=categories)
+        avg = {
+            k: (None if (isinstance(v, float) and np.isnan(v)) else round(float(v), 1))
+            for k, v in analysis["team_avg"].items()
+        }
+        return avg, unmatched
+
+    def _player_pr(name):
+        player_df, _ = match_players_to_df([name], all_df)
+        if player_df.empty:
+            return {cat: None for cat in categories}, None
+        matched_name = player_df.iloc[0].get("Name", name)
+        pr_dict = {}
+        for cat in categories:
+            col = col_map.get(cat)
+            if col and col in player_df.columns and col in all_df.columns:
+                val = player_df[col].iloc[0]
+                lower = cat in lower_list
+                pr = compute_pr(val, all_df[col], lower_is_better=lower)
+                pr_dict[cat] = None if (isinstance(pr, float) and np.isnan(pr)) else round(pr, 1)
+            else:
+                pr_dict[cat] = None
+        return pr_dict, matched_name
+
+    current_avg, _ = _roster_avg(current_names)
+    new_avg, unmatched = _roster_avg(new_names)
+    drop_pr, drop_matched = _player_pr(req.drop_player)
+    add_pr, add_matched = _player_pr(req.add_player)
+
+    # Delta: new - current (positive = improvement)
+    delta = {}
+    for cat in categories:
+        curr = current_avg.get(cat)
+        nw = new_avg.get(cat)
+        if curr is not None and nw is not None:
+            delta[cat] = round(nw - curr, 1)
+        else:
+            delta[cat] = None
+
+    return {
+        "drop_player": drop_matched or req.drop_player,
+        "add_player": add_matched or req.add_player,
+        "drop_type": req.drop_type,
+        "categories": categories,
+        "current_team_avg": current_avg,
+        "new_team_avg": new_avg,
+        "delta": delta,
+        "drop_pr": drop_pr,
+        "add_pr": add_pr,
+        "unmatched": unmatched,
+    }
 
 
 # ── Savant analysis endpoint ──────────────────────────────
