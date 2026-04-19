@@ -85,7 +85,11 @@ def compute_all_pr(
 
     results = []
     for _, player_row in df_player.iterrows():
-        row = {"Name": player_row.get("Name", player_row.get("OCR_Name", "Unknown"))}
+        row = {
+            "Name": player_row.get("Name", player_row.get("OCR_Name", "Unknown")),
+            "Team": player_row.get("Team", ""),
+            "Pos":  player_row.get("Pos", ""),
+        }
         for cat in categories:
             col = col_map.get(cat, cat)
             if col not in df_all.columns:
@@ -97,7 +101,10 @@ def compute_all_pr(
             row[cat] = compute_pr(player_val, all_vals, lower_is_better=lower)
         results.append(row)
 
-    return pd.DataFrame(results)
+    df = pd.DataFrame(results)
+    cat_cols = [c for c in categories if c in df.columns]
+    df["PR_Total"] = df[cat_cols].sum(axis=1, skipna=True)
+    return df
 
 
 # ─────────────────────────────────────────────────

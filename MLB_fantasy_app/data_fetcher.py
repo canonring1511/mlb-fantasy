@@ -122,9 +122,11 @@ def _fetch_mlb_stats(
             team_info = split.get("team", {})
             stat = split.get("stat", {})
 
+            pos_info = player_info.get("primaryPosition", {})
             row = {
                 "Name": player_info.get("fullName", "Unknown"),
                 "Team": team_info.get("abbreviation", ""),
+                "Pos":  pos_info.get("abbreviation", "") if isinstance(pos_info, dict) else "",
                 "player_id": player_info.get("id"),
             }
 
@@ -406,10 +408,14 @@ def match_players_to_df(
     """
     matched_rows = []
     unmatched = []
+    seen_matched: set[str] = set()  # deduplicate by canonical matched name
 
     for name in player_names:
         matched_name = fuzzy_match_player(name, df, name_col)
         if matched_name:
+            if matched_name in seen_matched:
+                continue  # same player already added via a different input spelling
+            seen_matched.add(matched_name)
             row = df[df[name_col] == matched_name].copy()
             row["OCR_Name"] = name
             matched_rows.append(row)
