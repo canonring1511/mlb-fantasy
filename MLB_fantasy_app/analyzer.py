@@ -2,8 +2,19 @@
 分析模組：計算 PR（百分位排名）並產生陣容強弱分析
 """
 
+import math
+
 import numpy as np
 import pandas as pd
+
+
+def _safe_str(val) -> str:
+    """Convert value to string, returning '' for NaN/None/non-string."""
+    if val is None:
+        return ""
+    if isinstance(val, float) and math.isnan(val):
+        return ""
+    return str(val)
 
 
 def _percentileofscore(a: np.ndarray, score: float) -> float:
@@ -87,8 +98,8 @@ def compute_all_pr(
     for _, player_row in df_player.iterrows():
         row = {
             "Name": player_row.get("Name", player_row.get("OCR_Name", "Unknown")),
-            "Team": player_row.get("Team", ""),
-            "Pos":  player_row.get("Pos", ""),
+            "Team": _safe_str(player_row.get("Team")),
+            "Pos":  _safe_str(player_row.get("Pos")),
         }
         for cat in categories:
             col = col_map.get(cat, cat)

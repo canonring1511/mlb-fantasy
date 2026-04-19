@@ -75,6 +75,19 @@ PITCHING_COL_MAP = {
     "blownSaves":       "BS",
 }
 
+# MLB Stats API split["team"] has id/name/link but no abbreviation field.
+# Map team ID → abbreviation so we can display short team names.
+_MLB_TEAM_ABBR: dict[int, str] = {
+    108: "LAA", 109: "ARI", 110: "BAL", 111: "BOS",
+    112: "CHC", 113: "CIN", 114: "CLE", 115: "COL",
+    116: "DET", 117: "HOU", 118: "KC",  119: "LAD",
+    120: "WSH", 121: "NYM", 133: "ATH", 134: "PIT",
+    135: "SD",  136: "SEA", 137: "SF",  138: "STL",
+    139: "TB",  140: "TEX", 141: "TOR", 142: "MIN",
+    143: "PHI", 144: "ATL", 145: "CWS", 146: "MIA",
+    147: "NYY", 158: "MIL",
+}
+
 
 # ─────────────────────────────────────────────────
 # 核心抓取函式
@@ -124,9 +137,10 @@ def _fetch_mlb_stats(
 
             # position is a top-level field in the split, not inside player_info
             pos_info = split.get("position", {})
+            team_id  = team_info.get("id")
             row = {
                 "Name": player_info.get("fullName", "Unknown"),
-                "Team": team_info.get("abbreviation", ""),
+                "Team": _MLB_TEAM_ABBR.get(team_id, team_info.get("name", "")[:3].upper() if team_info.get("name") else ""),
                 "Pos":  pos_info.get("abbreviation", "") if isinstance(pos_info, dict) else "",
                 "player_id": player_info.get("id"),
             }
