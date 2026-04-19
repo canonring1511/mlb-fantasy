@@ -49,8 +49,21 @@ export default function RosterPage() {
   }
 
   async function handleAnalyze() {
-    const bList = parseNames(batters)
-    const pList = parseNames(pitchers)
+    // Deduplicate by case-insensitive name within each list
+    const dedup = arr => {
+      const seen = new Set()
+      return arr.filter(n => {
+        const k = n.toLowerCase()
+        if (seen.has(k)) return false
+        seen.add(k); return true
+      })
+    }
+    const bList = dedup(parseNames(batters))
+    const pList = dedup(parseNames(pitchers))
+    // Sync cleaned lists back into the text boxes
+    setBatters(bList.join('\n'))
+    setPitchers(pList.join('\n'))
+
     if (!bList.length && !pList.length) {
       setError('請輸入球員名字')
       return

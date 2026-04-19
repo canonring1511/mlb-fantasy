@@ -178,7 +178,14 @@ function PlayerCard({ player }) {
         className="w-full p-4 flex items-center justify-between"
       >
         <div className="text-left">
-          <div className="text-white font-semibold">{player.name}</div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-white font-semibold">{player.name}</span>
+            {(player.Team || player.Pos) && (
+              <span className="text-slate-400 text-xs">
+                {[player.Team, player.Pos].filter(Boolean).join(' · ')}
+              </span>
+            )}
+          </div>
           {!player.found && (
             <div className="text-red-400 text-xs">找不到 Savant 數據</div>
           )}

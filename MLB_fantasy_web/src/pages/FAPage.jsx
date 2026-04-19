@@ -409,7 +409,11 @@ function FAResultList({ rows, categories }) {
             <div>
               <span className="text-slate-500 text-xs mr-2">#{i + 1}</span>
               <span className="text-white text-sm font-medium">{row.Name}</span>
-              {row.Team && <span className="text-slate-400 text-xs ml-2">{row.Team}</span>}
+              {(row.Team || row.Pos) && (
+                <span className="text-slate-400 text-xs ml-2">
+                  {[row.Team, row.Pos].filter(Boolean).join(' · ')}
+                </span>
+              )}
             </div>
             <div className="text-right">
               <div className="text-xs text-slate-400">PR 總分</div>

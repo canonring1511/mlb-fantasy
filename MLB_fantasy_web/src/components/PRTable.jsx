@@ -38,6 +38,13 @@ export default function PRTable({ rows, categories }) {
         <tbody>
           {rows.map((row, i) => {
             const meta = [row.Team, row.Pos].filter(Boolean).join(' · ')
+            // compute PR_Total locally if backend didn't send it
+            const prTotal = (row.PR_Total != null && !isNaN(row.PR_Total))
+              ? row.PR_Total
+              : categories.reduce((s, c) => {
+                  const v = row[c]
+                  return s + (v != null && !isNaN(v) ? v : 0)
+                }, 0)
             return (
               <tr key={i} className="border-b border-slate-800">
                 <td className="py-2 pr-3 sticky left-0 bg-slate-900 min-w-[120px]">
@@ -52,8 +59,8 @@ export default function PRTable({ rows, categories }) {
                   </td>
                 ))}
                 <td className="text-center py-1.5 px-2 border-l border-slate-700">
-                  <span className={`text-xs font-bold font-mono ${prTotalColor(row.PR_Total)}`}>
-                    {row.PR_Total != null ? Math.round(row.PR_Total) : '—'}
+                  <span className={`text-xs font-bold font-mono ${prTotalColor(prTotal)}`}>
+                    {Math.round(prTotal)}
                   </span>
                 </td>
               </tr>

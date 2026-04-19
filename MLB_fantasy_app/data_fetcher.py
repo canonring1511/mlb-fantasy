@@ -122,7 +122,8 @@ def _fetch_mlb_stats(
             team_info = split.get("team", {})
             stat = split.get("stat", {})
 
-            pos_info = player_info.get("primaryPosition", {})
+            # position is a top-level field in the split, not inside player_info
+            pos_info = split.get("position", {})
             row = {
                 "Name": player_info.get("fullName", "Unknown"),
                 "Team": team_info.get("abbreviation", ""),

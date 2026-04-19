@@ -461,6 +461,16 @@ def analyze_savant(req: SavantRequest):
         mlb_df=mlb_df,
     )
 
+    # Enrich each result with Team and Pos from mlb_df
+    for r in results:
+        matched = match_players_to_df([r.get("name", "")], mlb_df)[0]
+        if not matched.empty:
+            r["Team"] = str(matched.iloc[0].get("Team", "") or "")
+            r["Pos"]  = str(matched.iloc[0].get("Pos",  "") or "")
+        else:
+            r["Team"] = ""
+            r["Pos"]  = ""
+
     def _sanitize(val):
         """Recursively replace NaN floats with None for JSON serialization."""
         if isinstance(val, float) and np.isnan(val):
