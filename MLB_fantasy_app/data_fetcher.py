@@ -492,8 +492,70 @@ def get_savant_sprint_speed(year: int = None, min_runs: int = 5) -> pd.DataFrame
 
 
 # ─────────────────────────────────────────────────
-# Bat Tracking
+# 投手 Savant 數據
 # ─────────────────────────────────────────────────
+
+def get_savant_pitcher_stats(year: int = None, min_pitches: int = 1) -> pd.DataFrame:
+    """從 Savant Statcast leaderboard 取得投手數據（K%, BB%, Whiff%, EV/HH/Barrel/xwOBA against）"""
+    if year is None:
+        year = datetime.now().year
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/statcast"
+            f"?type=pitcher&year={yr}&position=&team=&min={min_pitches}&csv=true"
+        )
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        df = pd.read_csv(io.StringIO(resp.text))
+        if "last_name, first_name" in df.columns:
+            df["Name"] = df["last_name, first_name"].apply(_flip_name)
+        elif "player_name" in df.columns:
+            df["Name"] = df["player_name"]
+        return df
+
+    try:
+        df = _fetch(year)
+        if len(df) < 30:
+            df_prev = _fetch(year - 1)
+            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing_names)]], ignore_index=True)
+        return df
+    except Exception as e:
+        st.warning(f"⚠️ Savant 投手 Statcast 數據抓取失敗：{e}")
+        return pd.DataFrame()
+
+
+def get_savant_pitcher_discipline(year: int = None, min_pitches: int = 1) -> pd.DataFrame:
+    """從 Savant plate-discipline leaderboard 取得投手紀律數據（SwStr%, CSW% 等）"""
+    if year is None:
+        year = datetime.now().year
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/plate-discipline"
+            f"?type=pitcher&year={yr}&min={min_pitches}&csv=true"
+        )
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        df = pd.read_csv(io.StringIO(resp.text))
+        if "last_name, first_name" in df.columns:
+            df["Name"] = df["last_name, first_name"].apply(_flip_name)
+        elif "player_name" in df.columns:
+            df["Name"] = df["player_name"]
+        return df
+
+    try:
+        df = _fetch(year)
+        if len(df) < 30:
+            df_prev = _fetch(year - 1)
+            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing_names)]], ignore_index=True)
+        return df
+    except Exception as e:
+        st.warning(f"⚠️ Savant 投手紀律數據抓取失敗：{e}")
+        return pd.DataFrame()
+
 
 def get_savant_bat_tracking(year: int = None, min_swings: int = 100) -> pd.DataFrame:
     """從 Savant 取得揮棒力學數據（avg_bat_speed, squared_up, blast, whiff 等）"""

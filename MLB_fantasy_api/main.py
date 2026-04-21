@@ -27,6 +27,7 @@ from analyzer import (
     analyze_fa_players,
     analyze_pitchers,
     analyze_savant_luck,
+    analyze_savant_pitcher,
     compute_pr,
 )
 from config import (
@@ -42,6 +43,8 @@ from data_fetcher import (
     get_savant_batting_stats,
     get_savant_bat_tracking,
     get_savant_exit_velo,
+    get_savant_pitcher_discipline,
+    get_savant_pitcher_stats,
     get_savant_plate_discipline,
     get_savant_sprint_speed,
     match_players_to_df,
@@ -178,6 +181,7 @@ class AddDropRequest(BaseModel):
 class SavantRequest(BaseModel):
     player_names: list[str]
     year: int = datetime.now().year
+    player_type: str = "batter"  # "batter" or "pitcher"
 
 
 # ── Health check ──────────────────────────────────────────
@@ -444,8 +448,40 @@ def analyze_add_drop(req: AddDropRequest):
 def analyze_savant(req: SavantRequest):
     """
     Analyze Statcast / Baseball Savant data for the given players.
+    Supports player_type = "batter" (default) or "pitcher".
     Returns per-category verdicts (up/hold/down).
     """
+    def _safe_str(val):
+        if val is None or (isinstance(val, float) and np.isnan(val)):
+            return ""
+        return str(val)
+
+    def _sanitize(val):
+        if isinstance(val, float) and np.isnan(val):
+            return None
+        if isinstance(val, dict):
+            return {k: _sanitize(v) for k, v in val.items()}
+        return val
+
+    # ── Pitcher path ──────────────────────────────────────────
+    if req.player_type == "pitcher":
+        try:
+            pitcher_stat_df = get_savant_pitcher_stats(req.year)
+            pitcher_disc_df = get_savant_pitcher_discipline(req.year)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Savant pitcher fetch failed: {e}")
+
+        mlb_pitchers_df = _get_pitchers(req.year, "season")
+        results = analyze_savant_pitcher(
+            req.player_names,
+            pitcher_stat_df,
+            pitcher_disc_df,
+            mlb_pitchers_df=mlb_pitchers_df,
+        )
+        sanitized = [{k: _sanitize(v) for k, v in r.items()} for r in results]
+        return {"players": sanitized}
+
+    # ── Batter path (original logic) ─────────────────────────
     try:
         savant_df = get_savant_batting_stats(req.year)
         ev_df = get_savant_exit_velo(req.year)
@@ -461,11 +497,6 @@ def analyze_savant(req: SavantRequest):
         mlb_df=mlb_df,
     )
 
-    def _safe_str(val):
-        if val is None or (isinstance(val, float) and np.isnan(val)):
-            return ""
-        return str(val)
-
     # Enrich each result with Team and Pos from mlb_df
     for r in results:
         matched = match_players_to_df([r.get("name", "")], mlb_df)[0]
@@ -476,19 +507,7 @@ def analyze_savant(req: SavantRequest):
             r["Team"] = ""
             r["Pos"]  = ""
 
-    def _sanitize(val):
-        """Recursively replace NaN floats with None for JSON serialization."""
-        if isinstance(val, float) and np.isnan(val):
-            return None
-        if isinstance(val, dict):
-            return {k: _sanitize(v) for k, v in val.items()}
-        return val
-
-    # Sanitize NaN values for JSON
-    sanitized = []
-    for r in results:
-        sanitized.append({k: _sanitize(v) for k, v in r.items()})
-
+    sanitized = [{k: _sanitize(v) for k, v in r.items()} for r in results]
     return {"players": sanitized}
 
 

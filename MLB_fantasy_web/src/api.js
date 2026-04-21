@@ -41,10 +41,11 @@ export async function analyzeFA(batterNames, pitcherNames, year, period, batting
   return data
 }
 
-export async function analyzeSavant(playerNames, year) {
+export async function analyzeSavant(playerNames, year, playerType = 'batter') {
   const { data } = await api.post('/analyze/savant', {
     player_names: playerNames,
     year,
+    player_type: playerType,
   })
   return data
 }
