@@ -126,31 +126,23 @@ function prTextColor(val) {
 
 // ── Batter PR chart ────────────────────────────────────────
 function SavantPRChart({ savantPr, player }) {
-  if (!savantPr) return null
-
-  const sectionsWithData = PR_SECTIONS.map(section => ({
-    ...section,
-    metrics: section.metrics.filter(
-      m => savantPr[m.key] !== null && savantPr[m.key] !== undefined
-    ),
-  })).filter(s => s.metrics.length > 0)
-
-  if (sectionsWithData.length === 0) return null
+  const pr = savantPr || {}
 
   return (
     <div className="space-y-2">
       <h4 className="text-xs text-slate-400">進階數據 PR（vs 全聯盟）</h4>
-      {sectionsWithData.map(section => (
+      {PR_SECTIONS.map(section => (
         <div key={section.title}>
           <div className="text-[10px] font-semibold text-slate-500 mb-0.5 uppercase tracking-wide">
             {section.title}
           </div>
           <div>
             {section.metrics.map(({ key, label, rawKey, fmt, formula }) => {
-              const pr  = savantPr[key]
-              const raw = player[rawKey]
-              const pct = Math.min(100, Math.max(0, pr))
+              const prVal  = pr[key]
+              const raw    = player?.[rawKey]
+              const hasPr  = prVal !== null && prVal !== undefined
               const hasRaw = raw !== null && raw !== undefined && !Number.isNaN(raw)
+              const pct    = hasPr ? Math.min(100, Math.max(0, prVal)) : 0
               return (
                 <div key={key} className="mb-1.5">
                   <div className="flex items-center gap-2">
@@ -158,14 +150,18 @@ function SavantPRChart({ savantPr, player }) {
                       <span className="text-xs font-mono text-slate-300 leading-none">{label}</span>
                     </div>
                     <div className="flex-1 bg-slate-700 rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${prBarColor(pr)}`}
-                        style={{ width: `${pct}%` }}
-                      />
+                      {hasPr ? (
+                        <div
+                          className={`h-full rounded-full transition-all ${prBarColor(prVal)}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      ) : (
+                        <div className="h-full rounded-full bg-slate-600 opacity-30" style={{ width: '100%' }} />
+                      )}
                     </div>
                     <div className="w-7 shrink-0 text-right">
-                      <span className={`text-xs font-mono font-bold leading-none ${prTextColor(pr)}`}>
-                        {pr.toFixed(0)}
+                      <span className={`text-xs font-mono font-bold leading-none ${hasPr ? prTextColor(prVal) : 'text-slate-600'}`}>
+                        {hasPr ? prVal.toFixed(0) : '—'}
                       </span>
                     </div>
                     <div className="w-16 shrink-0 text-right">
@@ -190,24 +186,16 @@ function SavantPRChart({ savantPr, player }) {
 }
 
 // ── Pitcher PR chart ───────────────────────────────────────
+// Always renders all sections/metrics; shows "—" for missing data.
 function PitcherPRChart({ savantPr, player }) {
-  if (!savantPr) return null
-
-  const sectionsWithData = PITCHER_PR_SECTIONS.map(section => ({
-    ...section,
-    metrics: section.metrics.filter(
-      m => savantPr[m.key] !== null && savantPr[m.key] !== undefined
-    ),
-  })).filter(s => s.metrics.length > 0)
-
-  if (sectionsWithData.length === 0) return null
+  const pr = savantPr || {}
 
   return (
     <div className="space-y-2">
       <h4 className="text-xs text-slate-400">投手 Savant PR（vs 全聯盟投手）</h4>
-      {sectionsWithData.map(section => (
+      {PITCHER_PR_SECTIONS.map(section => (
         <div key={section.title}>
-          <div className={`flex items-center gap-1.5 mb-0.5`}>
+          <div className="flex items-center gap-1.5 mb-0.5">
             <span className={`text-[10px] font-semibold uppercase tracking-wide ${section.stable ? 'text-green-500' : 'text-orange-400'}`}>
               {section.title}
             </span>
@@ -217,10 +205,11 @@ function PitcherPRChart({ savantPr, player }) {
           </div>
           <div>
             {section.metrics.map(({ key, label, rawKey, fmt, formula }) => {
-              const pr  = savantPr[key]
-              const raw = player[rawKey]
-              const pct = Math.min(100, Math.max(0, pr))
+              const prVal = pr[key]
+              const raw   = player?.[rawKey]
+              const hasPr  = prVal !== null && prVal !== undefined
               const hasRaw = raw !== null && raw !== undefined && !Number.isNaN(Number(raw))
+              const pct   = hasPr ? Math.min(100, Math.max(0, prVal)) : 0
               return (
                 <div key={key} className="mb-1.5">
                   <div className="flex items-center gap-2">
@@ -228,14 +217,18 @@ function PitcherPRChart({ savantPr, player }) {
                       <span className="text-xs font-mono text-slate-300 leading-none">{label}</span>
                     </div>
                     <div className="flex-1 bg-slate-700 rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${prBarColor(pr)}`}
-                        style={{ width: `${pct}%` }}
-                      />
+                      {hasPr ? (
+                        <div
+                          className={`h-full rounded-full transition-all ${prBarColor(prVal)}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      ) : (
+                        <div className="h-full rounded-full bg-slate-600 opacity-30" style={{ width: '100%' }} />
+                      )}
                     </div>
                     <div className="w-7 shrink-0 text-right">
-                      <span className={`text-xs font-mono font-bold leading-none ${prTextColor(pr)}`}>
-                        {pr.toFixed(0)}
+                      <span className={`text-xs font-mono font-bold leading-none ${hasPr ? prTextColor(prVal) : 'text-slate-600'}`}>
+                        {hasPr ? prVal.toFixed(0) : '—'}
                       </span>
                     </div>
                     <div className="w-16 shrink-0 text-right">
