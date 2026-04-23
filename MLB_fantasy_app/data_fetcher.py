@@ -4,11 +4,14 @@ API 文件：https://statsapi.mlb.com/api/v1/  (免費、無需 API Key)
 """
 
 import io
+import logging
 import warnings
 from datetime import datetime, timedelta
 
 import pandas as pd
 import requests
+
+logger = logging.getLogger(__name__)
 
 try:
     import streamlit as st
@@ -249,9 +252,7 @@ def get_all_pitchers_last30(year: int = None) -> pd.DataFrame:
 
 @st.cache_data(ttl=3600, show_spinner="正在從 Baseball Savant 下載 xStats...")
 def get_savant_batting_stats(year: int = None, min_pa: int = 10) -> pd.DataFrame:
-    """從 Baseball Savant 取得打者預期數據（xBA, xSLG, xwOBA 等）
-    如果當年數據不足 50 人，自動補抓前一年。
-    """
+    """從 Baseball Savant 取得打者預期數據（xBA, xSLG, xwOBA 等）"""
     if year is None:
         year = datetime.now().year
 
@@ -262,31 +263,24 @@ def get_savant_batting_stats(year: int = None, min_pa: int = 10) -> pd.DataFrame
         )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
-        df = pd.read_csv(io.StringIO(resp.text))
-        if "last_name, first_name" in df.columns:
-            df["Name"] = df["last_name, first_name"].apply(_flip_name)
-        elif "player_name" in df.columns:
-            df["Name"] = df["player_name"]
-        return df
+        return _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
 
     try:
         df = _fetch(year)
         if len(df) < 50:
             df_prev = _fetch(year - 1)
-            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
-            df_prev_fill = df_prev[~df_prev["Name"].isin(existing_names)]
-            df = pd.concat([df, df_prev_fill], ignore_index=True)
+            existing = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing)]], ignore_index=True)
         return df
     except Exception as e:
+        logger.warning("Savant batting stats failed: %s", e)
         st.warning(f"⚠️ Savant 數據抓取失敗：{e}")
         return pd.DataFrame()
 
 
 @st.cache_data(ttl=3600, show_spinner="正在從 Baseball Savant 下載出球速度數據...")
 def get_savant_exit_velo(year: int = None, min_bbe: int = 10) -> pd.DataFrame:
-    """從 Savant 取得出球速度、Barrel、HardHit 等數據
-    如果當年數據不足 50 人，自動補抓前一年。
-    """
+    """從 Savant 取得出球速度、Barrel、HardHit 等數據"""
     if year is None:
         year = datetime.now().year
 
@@ -297,31 +291,24 @@ def get_savant_exit_velo(year: int = None, min_bbe: int = 10) -> pd.DataFrame:
         )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
-        df = pd.read_csv(io.StringIO(resp.text))
-        if "last_name, first_name" in df.columns:
-            df["Name"] = df["last_name, first_name"].apply(_flip_name)
-        elif "player_name" in df.columns:
-            df["Name"] = df["player_name"]
-        return df
+        return _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
 
     try:
         df = _fetch(year)
         if len(df) < 50:
             df_prev = _fetch(year - 1)
-            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
-            df_prev_fill = df_prev[~df_prev["Name"].isin(existing_names)]
-            df = pd.concat([df, df_prev_fill], ignore_index=True)
+            existing = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing)]], ignore_index=True)
         return df
     except Exception as e:
+        logger.warning("Savant exit velo failed: %s", e)
         st.warning(f"⚠️ Savant 出球速度數據抓取失敗：{e}")
         return pd.DataFrame()
 
 
 @st.cache_data(ttl=3600, show_spinner="正在從 Baseball Savant 下載選球紀律數據...")
 def get_savant_plate_discipline(year: int = None, min_pa: int = 10) -> pd.DataFrame:
-    """從 Savant 取得選球紀律數據（O-Swing%, SwStr%, BB%, K% 等）
-    如果當年數據不足 50 人，自動補抓前一年。
-    """
+    """從 Savant 取得選球紀律數據（O-Swing%, SwStr%, BB%, K% 等）"""
     if year is None:
         year = datetime.now().year
 
@@ -332,24 +319,17 @@ def get_savant_plate_discipline(year: int = None, min_pa: int = 10) -> pd.DataFr
         )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
-        df = pd.read_csv(io.StringIO(resp.text))
-        if "last_name, first_name" in df.columns:
-            df["Name"] = df["last_name, first_name"].apply(_flip_name)
-        elif "player_name" in df.columns:
-            df["Name"] = df["player_name"]
-        return df
+        return _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
 
     try:
         df = _fetch(year)
-        # 如果當年數據不足，補抓前一年
         if len(df) < 50:
             df_prev = _fetch(year - 1)
-            # 合併：當年有的用當年，否則用前一年
-            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
-            df_prev_fill = df_prev[~df_prev["Name"].isin(existing_names)]
-            df = pd.concat([df, df_prev_fill], ignore_index=True)
+            existing = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing)]], ignore_index=True)
         return df
     except Exception as e:
+        logger.warning("Savant plate discipline failed: %s", e)
         st.warning(f"⚠️ Savant 選球紀律數據抓取失敗：{e}")
         return pd.DataFrame()
 
@@ -449,12 +429,33 @@ def match_players_to_df(
 # 工具函式
 # ─────────────────────────────────────────────────
 
-def _flip_name(name: str) -> str:
-    """將 'Last, First' 格式轉成 'First Last'"""
+def _flip_name(name) -> str:
+    """將 'Last, First' 格式轉成 'First Last'；已是 'First Last' 則原樣返回。"""
+    if not name or (isinstance(name, float)):
+        return ""
+    name = str(name).strip()
     if "," in name:
         parts = name.split(",", 1)
         return f"{parts[1].strip()} {parts[0].strip()}"
     return name
+
+
+def _resolve_name_col(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    從 CSV 的各種欄位命名慣例中解析出 'Name'（First Last 格式）。
+    嘗試順序：last_name, first_name → player_name → name → first_name+last_name
+    """
+    if "Name" in df.columns:
+        return df
+    df = df.copy()
+    for col in ("last_name, first_name", "player_name", "name"):
+        if col in df.columns:
+            df["Name"] = df[col].apply(_flip_name)
+            return df
+    if "first_name" in df.columns and "last_name" in df.columns:
+        df["Name"] = (df["first_name"].fillna("").str.strip() + " " +
+                      df["last_name"].fillna("").str.strip()).str.strip()
+    return df
 
 
 # ─────────────────────────────────────────────────
@@ -473,12 +474,7 @@ def get_savant_sprint_speed(year: int = None, min_runs: int = 5) -> pd.DataFrame
         )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
-        df = pd.read_csv(io.StringIO(resp.text))
-        if "last_name, first_name" in df.columns:
-            df["Name"] = df["last_name, first_name"].apply(_flip_name)
-        elif "player_name" in df.columns:
-            df["Name"] = df["player_name"]
-        return df
+        return _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
 
     try:
         df = _fetch(year)
@@ -495,65 +491,65 @@ def get_savant_sprint_speed(year: int = None, min_runs: int = 5) -> pd.DataFrame
 # 投手 Savant 數據
 # ─────────────────────────────────────────────────
 
-def get_savant_pitcher_stats(year: int = None, min_pitches: int = 1) -> pd.DataFrame:
-    """從 Savant Statcast leaderboard 取得投手數據（K%, BB%, Whiff%, EV/HH/Barrel/xwOBA against）"""
+def get_savant_pitcher_stats(year: int = None) -> pd.DataFrame:
+    """從 Savant Statcast leaderboard 取得投手數據（K%, BB%, Whiff%, EV/HH/Barrel/xwOBA against）
+    min=1 取得所有有至少 1 個打席的投手（含賽季初小樣本）。
+    """
     if year is None:
         year = datetime.now().year
 
     def _fetch(yr):
         url = (
             f"https://baseballsavant.mlb.com/leaderboard/statcast"
-            f"?type=pitcher&year={yr}&position=&team=&min={min_pitches}&csv=true"
+            f"?type=pitcher&year={yr}&position=&team=&min=1&csv=true"
         )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
-        df = pd.read_csv(io.StringIO(resp.text))
-        if "last_name, first_name" in df.columns:
-            df["Name"] = df["last_name, first_name"].apply(_flip_name)
-        elif "player_name" in df.columns:
-            df["Name"] = df["player_name"]
+        df = _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
+        logger.info("Savant pitcher stats %d: %d rows, cols=%s", yr, len(df), list(df.columns[:8]))
         return df
 
     try:
         df = _fetch(year)
         if len(df) < 30:
+            logger.warning("Savant pitcher stats %d only %d rows; appending prev year", year, len(df))
             df_prev = _fetch(year - 1)
-            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
-            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing_names)]], ignore_index=True)
+            existing = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing)]], ignore_index=True)
         return df
     except Exception as e:
-        st.warning(f"⚠️ Savant 投手 Statcast 數據抓取失敗：{e}")
+        logger.error("Savant pitcher stats failed: %s", e)
         return pd.DataFrame()
 
 
-def get_savant_pitcher_discipline(year: int = None, min_pitches: int = 1) -> pd.DataFrame:
-    """從 Savant plate-discipline leaderboard 取得投手紀律數據（SwStr%, CSW% 等）"""
+def get_savant_pitcher_discipline(year: int = None) -> pd.DataFrame:
+    """從 Savant plate-discipline leaderboard 取得投手紀律數據（SwStr%, CSW% 等）
+    min=1 取得所有有至少 1 個打席的投手。
+    """
     if year is None:
         year = datetime.now().year
 
     def _fetch(yr):
         url = (
             f"https://baseballsavant.mlb.com/leaderboard/plate-discipline"
-            f"?type=pitcher&year={yr}&min={min_pitches}&csv=true"
+            f"?type=pitcher&year={yr}&min=1&csv=true"
         )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
-        df = pd.read_csv(io.StringIO(resp.text))
-        if "last_name, first_name" in df.columns:
-            df["Name"] = df["last_name, first_name"].apply(_flip_name)
-        elif "player_name" in df.columns:
-            df["Name"] = df["player_name"]
+        df = _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
+        logger.info("Savant pitcher disc %d: %d rows, cols=%s", yr, len(df), list(df.columns[:8]))
         return df
 
     try:
         df = _fetch(year)
         if len(df) < 30:
+            logger.warning("Savant pitcher disc %d only %d rows; appending prev year", year, len(df))
             df_prev = _fetch(year - 1)
-            existing_names = set(df["Name"].dropna()) if "Name" in df.columns else set()
-            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing_names)]], ignore_index=True)
+            existing = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing)]], ignore_index=True)
         return df
     except Exception as e:
-        st.warning(f"⚠️ Savant 投手紀律數據抓取失敗：{e}")
+        logger.error("Savant pitcher discipline failed: %s", e)
         return pd.DataFrame()
 
 
@@ -569,11 +565,7 @@ def get_savant_bat_tracking(year: int = None, min_swings: int = 100) -> pd.DataF
         )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
-        df = pd.read_csv(io.StringIO(resp.text))
-        # bat-tracking CSV 用 'name' 欄位，格式為 'Last, First'
-        if "name" in df.columns:
-            df["Name"] = df["name"].apply(_flip_name)
-        return df
+        return _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
 
     try:
         df = _fetch(year)

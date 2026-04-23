@@ -62,7 +62,8 @@ const PR_SECTIONS = [
 // ── Pitcher PR sections ────────────────────────────────────
 const PITCHER_PR_SECTIONS = [
   {
-    title: '★ 三振能力（信號 — 小樣本可信）',
+    title: '三振能力',
+    badge: '★ 信號',
     stable: true,
     metrics: [
       { key: 'SwStr%', label: 'SwStr%★', rawKey: 'swstr', fmt: v => v.toFixed(1) + '%',
@@ -72,11 +73,12 @@ const PITCHER_PR_SECTIONS = [
       { key: 'K%',     label: 'K%',      rawKey: 'k_pct', fmt: v => v.toFixed(1) + '%',
         formula: '三振率，略受捕手接球影響' },
       { key: 'Whiff%', label: 'Whiff%',  rawKey: 'whiff', fmt: v => v.toFixed(1) + '%',
-        formula: '揮空 ÷ 揮棒數（注意：不如 SwStr% 純粹）' },
+        formula: '揮空 ÷ 揮棒數（不如 SwStr% 純粹）' },
     ],
   },
   {
-    title: '控球能力（信號）',
+    title: '控球能力',
+    badge: '信號',
     stable: true,
     metrics: [
       { key: 'BB%↓', label: 'BB%↓', rawKey: 'bb_pct', fmt: v => v.toFixed(1) + '%',
@@ -84,11 +86,12 @@ const PITCHER_PR_SECTIONS = [
     ],
   },
   {
-    title: '被擊球品質（噪音 — 需大樣本）',
+    title: '被擊球品質',
+    badge: '噪音',
     stable: false,
     metrics: [
       { key: 'HH%↓',   label: 'HH%↓',   rawKey: 'hh',    fmt: v => v.toFixed(1) + '%',
-        formula: '被強擊球率（出球速 ≥95mph），越低越好', lowerBetter: true },
+        formula: '被強擊球率（≥95mph），越低越好', lowerBetter: true },
       { key: 'Brl%↓',  label: 'Brl%↓',  rawKey: 'brl',   fmt: v => v.toFixed(1) + '%',
         formula: '被 Barrel 率，越低越好', lowerBetter: true },
       { key: 'EV↓',    label: 'EV↓',     rawKey: 'ev',    fmt: v => v.toFixed(1) + ' mph',
@@ -98,7 +101,8 @@ const PITCHER_PR_SECTIONS = [
     ],
   },
   {
-    title: '預期數據（噪音 — 需 50+ IP）',
+    title: '預期數據',
+    badge: '需50+IP',
     stable: false,
     metrics: [
       { key: 'xBA↓', label: 'xBA↓', rawKey: 'xba', fmt: v => v.toFixed(3),
@@ -196,12 +200,12 @@ function PitcherPRChart({ savantPr, player }) {
       {PITCHER_PR_SECTIONS.map(section => (
         <div key={section.title}>
           <div className="flex items-center gap-1.5 mb-0.5">
-            <span className={`text-[10px] font-semibold uppercase tracking-wide ${section.stable ? 'text-green-500' : 'text-orange-400'}`}>
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
               {section.title}
             </span>
-            {!section.stable && (
-              <span className="text-[9px] text-orange-400 bg-orange-900/30 px-1 rounded">小樣本為噪音</span>
-            )}
+            <span className={`text-[9px] px-1 rounded font-medium ${section.stable ? 'text-green-400 bg-green-900/30' : 'text-orange-400 bg-orange-900/30'}`}>
+              {section.badge}
+            </span>
           </div>
           <div>
             {section.metrics.map(({ key, label, rawKey, fmt, formula }) => {

@@ -513,6 +513,21 @@ def analyze_savant(req: SavantRequest):
 
 # ── MLB data endpoints (for debugging / pre-fetch) ─────────
 
+@app.get("/debug/savant-pitcher")
+def debug_savant_pitcher(year: int = datetime.now().year):
+    """Return Savant pitcher CSV column names + first 3 rows (for debugging name format)."""
+    stat_df = get_savant_pitcher_stats(year)
+    disc_df = get_savant_pitcher_discipline(year)
+    return {
+        "stat_rows": len(stat_df),
+        "stat_cols": list(stat_df.columns) if not stat_df.empty else [],
+        "stat_sample": _df_to_records(stat_df.head(3)) if not stat_df.empty else [],
+        "disc_rows": len(disc_df),
+        "disc_cols": list(disc_df.columns) if not disc_df.empty else [],
+        "disc_sample": _df_to_records(disc_df.head(3)) if not disc_df.empty else [],
+    }
+
+
 @app.get("/mlb/batters")
 def get_batters(year: int = datetime.now().year, period: str = "season"):
     """Return raw batter stats (for debugging)."""
