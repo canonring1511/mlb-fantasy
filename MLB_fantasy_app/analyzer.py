@@ -664,8 +664,9 @@ def get_radar_data(team_avg: pd.Series, categories: list[str]) -> dict:
 
 def analyze_savant_pitcher(
     player_names: list[str],
-    pitcher_stat_df: pd.DataFrame,
-    pitcher_disc_df: pd.DataFrame = None,
+    pitcher_stat_df: pd.DataFrame,           # statcast: EV, HH%, Barrel%
+    pitcher_disc_df: pd.DataFrame = None,    # custom: K%, BB%, Whiff%, SwStr%, CSW%
+    pitcher_expected_df: pd.DataFrame = None, # expected_statistics: xBA, xwOBA, xERA
     mlb_pitchers_df: pd.DataFrame = None,
 ) -> list[dict]:
     """
@@ -712,22 +713,25 @@ def analyze_savant_pitcher(
         return {"verdict": verdict, "icon": ICONS[verdict], "label": LABELS[verdict], "reasons": reasons}
 
     # Pre-compute reference series for PR calculation
-    swstr_ser  = _col(pitcher_disc_df, "swstr_percent")
-    csw_ser    = _col(pitcher_disc_df, "csw_percent")
-    k_ser      = _col(pitcher_stat_df, "k_percent")
-    bb_ser     = _col(pitcher_stat_df, "bb_percent")
-    whiff_ser  = _col(pitcher_stat_df, "whiff_percent")
-    ev_ser     = _col(pitcher_stat_df, "exit_velocity_avg")
-    hh_ser     = _col(pitcher_stat_df, "hard_hit_percent")
-    brl_ser    = _col(pitcher_stat_df, "barrel_batted_rate")
-    xwoba_ser  = _col(pitcher_stat_df, "xwoba", "est_woba")
-    xba_ser    = _col(pitcher_stat_df, "xba", "est_ba")
+    # disc_df (custom endpoint): k_percent, bb_percent, whiff_percent, p_swstr_percent, csw
+    swstr_ser  = _col(pitcher_disc_df, "p_swstr_percent")
+    csw_ser    = _col(pitcher_disc_df, "csw")
+    k_ser      = _col(pitcher_disc_df, "k_percent")
+    bb_ser     = _col(pitcher_disc_df, "bb_percent")
+    whiff_ser  = _col(pitcher_disc_df, "whiff_percent")
+    # stat_df (statcast endpoint): avg_hit_speed, ev95percent, brl_percent
+    ev_ser     = _col(pitcher_stat_df, "avg_hit_speed")
+    hh_ser     = _col(pitcher_stat_df, "ev95percent")
+    brl_ser    = _col(pitcher_stat_df, "brl_percent")
+    # expected_df: est_woba, est_ba, xera
+    xwoba_ser  = _col(pitcher_expected_df, "est_woba")
+    xba_ser    = _col(pitcher_expected_df, "est_ba")
 
     results = []
     for name in player_names:
         entry = {"name": name, "found": False}
 
-        ps_row = pd_row = None
+        ps_row = pd_row = pe_row = None
 
         if pitcher_stat_df is not None and not pitcher_stat_df.empty:
             matched = fuzzy_match_player(name, pitcher_stat_df, "Name")
@@ -739,6 +743,12 @@ def analyze_savant_pitcher(
             matched_d = fuzzy_match_player(name, pitcher_disc_df, "Name")
             if matched_d:
                 pd_row = pitcher_disc_df[pitcher_disc_df["Name"] == matched_d].iloc[0].to_dict()
+                entry["found"] = True
+
+        if pitcher_expected_df is not None and not pitcher_expected_df.empty:
+            matched_e = fuzzy_match_player(name, pitcher_expected_df, "Name")
+            if matched_e:
+                pe_row = pitcher_expected_df[pitcher_expected_df["Name"] == matched_e].iloc[0].to_dict()
                 entry["found"] = True
 
         if mlb_pitchers_df is not None and not mlb_pitchers_df.empty:
@@ -753,16 +763,19 @@ def analyze_savant_pitcher(
             continue
 
         # ── Raw values ──────────────────────────────────────────
-        swstr = fget(pd_row, "swstr_percent")
-        csw   = fget(pd_row, "csw_percent")
-        k_pct = fget(ps_row, "k_percent")
-        bb_pct= fget(ps_row, "bb_percent")
-        whiff = fget(ps_row, "whiff_percent")
-        ev    = fget(ps_row, "exit_velocity_avg")
-        hh    = fget(ps_row, "hard_hit_percent")
-        brl   = fget(ps_row, "barrel_batted_rate")
-        xwoba = fget(ps_row, "xwoba", "est_woba")
-        xba   = fget(ps_row, "xba", "est_ba")
+        # from disc_df (custom endpoint)
+        swstr = fget(pd_row, "p_swstr_percent")
+        csw   = fget(pd_row, "csw")
+        k_pct = fget(pd_row, "k_percent")
+        bb_pct= fget(pd_row, "bb_percent")
+        whiff = fget(pd_row, "whiff_percent")
+        # from stat_df (statcast endpoint)
+        ev    = fget(ps_row, "avg_hit_speed")
+        hh    = fget(ps_row, "ev95percent")
+        brl   = fget(ps_row, "brl_percent")
+        # from expected_df
+        xwoba = fget(pe_row, "est_woba")
+        xba   = fget(pe_row, "est_ba")
 
         # ── PR values ────────────────────────────────────────────
         def _safe_pr(val, ser, lower=False):

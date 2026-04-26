@@ -44,6 +44,7 @@ from data_fetcher import (
     get_savant_bat_tracking,
     get_savant_exit_velo,
     get_savant_pitcher_discipline,
+    get_savant_pitcher_expected,
     get_savant_pitcher_stats,
     get_savant_plate_discipline,
     get_savant_sprint_speed,
@@ -466,8 +467,9 @@ def analyze_savant(req: SavantRequest):
     # ── Pitcher path ──────────────────────────────────────────
     if req.player_type == "pitcher":
         try:
-            pitcher_stat_df = get_savant_pitcher_stats(req.year)
-            pitcher_disc_df = get_savant_pitcher_discipline(req.year)
+            pitcher_stat_df     = get_savant_pitcher_stats(req.year)
+            pitcher_disc_df     = get_savant_pitcher_discipline(req.year)
+            pitcher_expected_df = get_savant_pitcher_expected(req.year)
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Savant pitcher fetch failed: {e}")
 
@@ -476,6 +478,7 @@ def analyze_savant(req: SavantRequest):
             req.player_names,
             pitcher_stat_df,
             pitcher_disc_df,
+            pitcher_expected_df,
             mlb_pitchers_df=mlb_pitchers_df,
         )
         sanitized = [{k: _sanitize(v) for k, v in r.items()} for r in results]
@@ -516,8 +519,9 @@ def analyze_savant(req: SavantRequest):
 @app.get("/debug/savant-pitcher")
 def debug_savant_pitcher(year: int = datetime.now().year):
     """Return Savant pitcher CSV column names + first 3 rows (for debugging name format)."""
-    stat_df = get_savant_pitcher_stats(year)
-    disc_df = get_savant_pitcher_discipline(year)
+    stat_df     = get_savant_pitcher_stats(year)
+    disc_df     = get_savant_pitcher_discipline(year)
+    expected_df = get_savant_pitcher_expected(year)
     return {
         "stat_rows": len(stat_df),
         "stat_cols": list(stat_df.columns) if not stat_df.empty else [],
@@ -525,6 +529,9 @@ def debug_savant_pitcher(year: int = datetime.now().year):
         "disc_rows": len(disc_df),
         "disc_cols": list(disc_df.columns) if not disc_df.empty else [],
         "disc_sample": _df_to_records(disc_df.head(3)) if not disc_df.empty else [],
+        "expected_rows": len(expected_df),
+        "expected_cols": list(expected_df.columns) if not expected_df.empty else [],
+        "expected_sample": _df_to_records(expected_df.head(3)) if not expected_df.empty else [],
     }
 
 

@@ -523,7 +523,8 @@ def get_savant_pitcher_stats(year: int = None) -> pd.DataFrame:
 
 
 def get_savant_pitcher_discipline(year: int = None) -> pd.DataFrame:
-    """從 Savant plate-discipline leaderboard 取得投手紀律數據（SwStr%, CSW% 等）
+    """從 Savant custom leaderboard 取得投手紀律數據（K%, BB%, Whiff%, SwStr%, CSW%）
+    plate-discipline 端點不支援投手，改用 custom 端點。
     min=1 取得所有有至少 1 個打席的投手。
     """
     if year is None:
@@ -531,13 +532,15 @@ def get_savant_pitcher_discipline(year: int = None) -> pd.DataFrame:
 
     def _fetch(yr):
         url = (
-            f"https://baseballsavant.mlb.com/leaderboard/plate-discipline"
-            f"?type=pitcher&year={yr}&min=1&csv=true"
+            f"https://baseballsavant.mlb.com/leaderboard/custom"
+            f"?type=pitcher&year={yr}&min=1"
+            f"&selections=k_percent,bb_percent,whiff_percent,p_swstr_percent,csw"
+            f"&csv=true"
         )
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
         df = _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
-        logger.info("Savant pitcher disc %d: %d rows, cols=%s", yr, len(df), list(df.columns[:8]))
+        logger.info("Savant pitcher disc %d: %d rows, cols=%s", yr, len(df), list(df.columns[:10]))
         return df
 
     try:
@@ -550,6 +553,37 @@ def get_savant_pitcher_discipline(year: int = None) -> pd.DataFrame:
         return df
     except Exception as e:
         logger.error("Savant pitcher discipline failed: %s", e)
+        return pd.DataFrame()
+
+
+def get_savant_pitcher_expected(year: int = None) -> pd.DataFrame:
+    """從 Savant expected_statistics leaderboard 取得投手預期數據（xBA, xwOBA, xERA）
+    min=1 取得所有有至少 1 個打席的投手。
+    """
+    if year is None:
+        year = datetime.now().year
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/expected_statistics"
+            f"?type=pitcher&year={yr}&position=&team=&min=1&csv=true"
+        )
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        df = _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
+        logger.info("Savant pitcher expected %d: %d rows, cols=%s", yr, len(df), list(df.columns[:10]))
+        return df
+
+    try:
+        df = _fetch(year)
+        if len(df) < 30:
+            logger.warning("Savant pitcher expected %d only %d rows; appending prev year", year, len(df))
+            df_prev = _fetch(year - 1)
+            existing = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing)]], ignore_index=True)
+        return df
+    except Exception as e:
+        logger.error("Savant pitcher expected failed: %s", e)
         return pd.DataFrame()
 
 
