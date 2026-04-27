@@ -460,10 +460,18 @@ def analyze_savant(req: SavantRequest):
         return str(val)
 
     def _sanitize(val):
+        if val is None:
+            return None
         if isinstance(val, float) and np.isnan(val):
             return None
         if isinstance(val, dict):
             return {k: _sanitize(v) for k, v in val.items()}
+        if isinstance(val, list):
+            return [_sanitize(item) for item in val]
+        # Convert numpy scalar types to Python native so JSON serialization works
+        if hasattr(val, 'item'):
+            v = val.item()
+            return None if (isinstance(v, float) and np.isnan(v)) else v
         return val
 
     # ── Pitcher path ──────────────────────────────────────────

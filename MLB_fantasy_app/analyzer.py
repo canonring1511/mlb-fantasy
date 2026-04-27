@@ -741,13 +741,21 @@ def analyze_savant_pitcher(
 
     def _rv_pr(rv100, pitch_type_code):
         """Compute PR for a pitch's RV/100 (positive = good for pitcher, higher = better)."""
-        if rv100 is None or np.isnan(float(rv100)):
+        try:
+            if rv100 is None:
+                return None
+            fval = float(rv100)
+            if np.isnan(fval):
+                return None
+            ser = _rv_by_type.get(pitch_type_code)
+            if ser is None or len(ser) == 0:
+                ser = _rv_all_ser if len(_rv_all_ser) > 0 else None
+            if ser is None:
+                return None
+            r = compute_pr(fval, ser, lower_is_better=False)
+            return None if (np.isnan(r) or np.isinf(r)) else round(float(r), 1)
+        except Exception:
             return None
-        ser = _rv_by_type.get(pitch_type_code, _rv_all_ser if not _rv_all_ser.empty else None)
-        if ser is None:
-            return None
-        r = compute_pr(float(rv100), ser, lower_is_better=False)
-        return None if np.isnan(r) else round(float(r), 1)
 
     results = []
     for name in player_names:
