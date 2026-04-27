@@ -66,14 +66,10 @@ const PITCHER_PR_SECTIONS = [
     badge: '★ 信號',
     stable: true,
     metrics: [
-      { key: 'SwStr%', label: 'SwStr%★', rawKey: 'swstr', fmt: v => v.toFixed(1) + '%',
-        formula: '揮空 ÷ 總投球數，最快穩定的核心指標' },
-      { key: 'CSW%',   label: 'CSW%',    rawKey: 'csw',   fmt: v => v.toFixed(1) + '%',
-        formula: '(揮空 + 好球帶內稱好球) ÷ 總投球數' },
       { key: 'K%',     label: 'K%',      rawKey: 'k_pct', fmt: v => v.toFixed(1) + '%',
-        formula: '三振率，略受捕手接球影響' },
-      { key: 'Whiff%', label: 'Whiff%',  rawKey: 'whiff', fmt: v => v.toFixed(1) + '%',
-        formula: '揮空 ÷ 揮棒數（不如 SwStr% 純粹）' },
+        formula: '三振率' },
+      { key: 'Whiff%', label: 'Whiff%★', rawKey: 'whiff', fmt: v => v.toFixed(1) + '%',
+        formula: '揮空 ÷ 揮棒數，最穩定的早期三振信號' },
     ],
   },
   {
@@ -256,6 +252,61 @@ function PitcherPRChart({ savantPr, player }) {
   )
 }
 
+// ── Pitch arsenal table ────────────────────────────────────
+function PitchArsenalTable({ pitches }) {
+  if (!pitches || pitches.length === 0) return null
+  return (
+    <div>
+      <h4 className="text-xs text-slate-400 mb-1.5">球種配置</h4>
+      <div className="rounded-xl overflow-hidden border border-slate-700">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-slate-700/50 text-slate-400">
+              <th className="py-1.5 px-2 text-left font-medium">球種</th>
+              <th className="py-1.5 px-2 text-right font-medium">使用%</th>
+              <th className="py-1.5 px-2 text-right font-medium">球速</th>
+              <th className="py-1.5 px-2 text-right font-medium">RV/100</th>
+              <th className="py-1.5 px-2 text-right font-medium">Whiff%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pitches.map((p, i) => {
+              const rv = p.rv100
+              const rvColor = rv == null
+                ? 'text-slate-400'
+                : rv <= -1.5 ? 'text-green-400 font-semibold'
+                : rv <= -0.5 ? 'text-green-300'
+                : rv >= 1.5  ? 'text-red-400 font-semibold'
+                : rv >= 0.5  ? 'text-orange-400'
+                : 'text-slate-300'
+              return (
+                <tr key={i} className="border-t border-slate-700/60">
+                  <td className="py-1.5 px-2 text-slate-200">{p.name}</td>
+                  <td className="py-1.5 px-2 text-right text-slate-300">
+                    {p.usage != null ? p.usage.toFixed(1) + '%' : '—'}
+                  </td>
+                  <td className="py-1.5 px-2 text-right text-slate-300">
+                    {p.velo != null ? p.velo.toFixed(1) : '—'}
+                  </td>
+                  <td className={`py-1.5 px-2 text-right font-mono ${rvColor}`}>
+                    {rv != null ? (rv > 0 ? '+' : '') + rv.toFixed(1) : '—'}
+                  </td>
+                  <td className="py-1.5 px-2 text-right text-slate-300">
+                    {p.whiff != null ? p.whiff.toFixed(1) + '%' : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        <div className="px-2 py-1 bg-slate-700/20 text-[9px] text-slate-500">
+          RV/100 = 每100球得分價值（負值=對投手有利） · 球速 mph
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Verdict card (shared) ──────────────────────────────────
 const VERDICT_STYLE = {
   up:   { icon: '📈', label: '看漲', color: 'text-green-400', bg: 'bg-green-900/30 border-green-700' },
@@ -391,12 +442,13 @@ function PitcherCard({ player }) {
           {/* Small sample notice */}
           <div className="bg-orange-900/20 border border-orange-800 rounded-xl px-3 py-2">
             <p className="text-orange-300 text-xs leading-relaxed">
-              ⚠️ 賽季初小樣本：優先參考 <strong>SwStr%</strong> 與 <strong>CSW%</strong>（信號穩定快）。
+              ⚠️ 賽季初小樣本：優先參考 <strong>Whiff%</strong> 與 <strong>K%</strong>（三振信號穩定快）。
               被擊球數據（HardHit、Barrel、xwOBA）在 50 IP 前為噪音，請謹慎解讀。
             </p>
           </div>
 
           <PitcherPRChart savantPr={player.savant_pr} player={player} />
+          <PitchArsenalTable pitches={player.pitches} />
 
           {Object.keys(player.verdicts || {}).length > 0 && (
             <div>
@@ -451,7 +503,7 @@ export default function SavantPage() {
     }
   }
 
-  const typeLabel = playerType === 'batter' ? '擊球品質、跑壘速度、揮棒力學全面 PR 排名' : 'SwStr%、CSW%、被擊球品質 PR 排名'
+  const typeLabel = playerType === 'batter' ? '擊球品質、跑壘速度、揮棒力學全面 PR 排名' : 'K%、Whiff%、被擊球品質 PR + 球種配置'
 
   return (
     <div className="page-content">
@@ -490,7 +542,7 @@ export default function SavantPage() {
           ) : (
             <>
               <p className="text-xs text-orange-300 mb-2">
-                ⚠️ 賽季初重點看 SwStr% 和 CSW%，被擊球數據（xwOBA、HardHit%）在 50 IP 前為噪音
+                ⚠️ 賽季初重點看 Whiff% 和 K%，被擊球數據（xwOBA、HardHit%）在 50 IP 前為噪音
               </p>
               <textarea
                 value={pitcherNames}

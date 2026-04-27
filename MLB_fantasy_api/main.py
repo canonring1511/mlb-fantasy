@@ -43,9 +43,11 @@ from data_fetcher import (
     get_savant_batting_stats,
     get_savant_bat_tracking,
     get_savant_exit_velo,
+    get_savant_pitcher_arsenal,
     get_savant_pitcher_discipline,
     get_savant_pitcher_expected,
     get_savant_pitcher_stats,
+    get_savant_pitcher_velocity,
     get_savant_plate_discipline,
     get_savant_sprint_speed,
     match_players_to_df,
@@ -470,6 +472,8 @@ def analyze_savant(req: SavantRequest):
             pitcher_stat_df     = get_savant_pitcher_stats(req.year)
             pitcher_disc_df     = get_savant_pitcher_discipline(req.year)
             pitcher_expected_df = get_savant_pitcher_expected(req.year)
+            pitcher_arsenal_df  = get_savant_pitcher_arsenal(req.year)
+            pitcher_vel_df      = get_savant_pitcher_velocity(req.year)
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Savant pitcher fetch failed: {e}")
 
@@ -479,6 +483,8 @@ def analyze_savant(req: SavantRequest):
             pitcher_stat_df,
             pitcher_disc_df,
             pitcher_expected_df,
+            pitcher_arsenal_df=pitcher_arsenal_df,
+            pitcher_vel_df=pitcher_vel_df,
             mlb_pitchers_df=mlb_pitchers_df,
         )
         sanitized = [{k: _sanitize(v) for k, v in r.items()} for r in results]

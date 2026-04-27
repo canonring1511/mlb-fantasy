@@ -664,21 +664,23 @@ def get_radar_data(team_avg: pd.Series, categories: list[str]) -> dict:
 
 def analyze_savant_pitcher(
     player_names: list[str],
-    pitcher_stat_df: pd.DataFrame,           # statcast: EV, HH%, Barrel%
-    pitcher_disc_df: pd.DataFrame = None,    # custom: K%, BB%, Whiff%, SwStr%, CSW%
-    pitcher_expected_df: pd.DataFrame = None, # expected_statistics: xBA, xwOBA, xERA
+    pitcher_stat_df: pd.DataFrame,             # statcast: EV, HH%, Barrel%
+    pitcher_disc_df: pd.DataFrame = None,      # custom: K%, BB%, Whiff%
+    pitcher_expected_df: pd.DataFrame = None,  # expected_statistics: xBA, xwOBA, xERA
+    pitcher_arsenal_df: pd.DataFrame = None,   # pitch-arsenal-stats: per-pitch rv100/whiff/usage
+    pitcher_vel_df: pd.DataFrame = None,       # custom velocity: ff/si/fc... avg_speed
     mlb_pitchers_df: pd.DataFrame = None,
 ) -> list[dict]:
     """
     分析投手 Statcast 數據，計算 PR 值並給出各 Fantasy 類別判斷。
 
     核心邏輯（根據小樣本信號理論）：
-    - SwStr%、CSW%：最穩定的信號，最快累積可靠樣本
-    - K%：略受捕手接球/主審影響，但仍有參考價值
+    - K%、Whiff%：最可靠的早期三振信號（SwStr%/CSW% Savant 未提供）
     - BB%：控球能力，樣本穩定快
     - HardHit%、Barrel%、xwOBA against：需大樣本，早期為噪音
+    - 球種配置（run value/100、球速）：了解球路組合的客觀依據
     """
-    from data_fetcher import fuzzy_match_player
+    from data_fetcher import fuzzy_match_player, _PITCH_TYPE_VEL_COL
 
     ICONS  = {"up": "📈", "hold": "➡️", "down": "📉"}
     LABELS = {"up": "看漲", "hold": "維持", "down": "看跌"}
@@ -713,9 +715,7 @@ def analyze_savant_pitcher(
         return {"verdict": verdict, "icon": ICONS[verdict], "label": LABELS[verdict], "reasons": reasons}
 
     # Pre-compute reference series for PR calculation
-    # disc_df (custom endpoint): k_percent, bb_percent, whiff_percent, p_swstr_percent, csw
-    swstr_ser  = _col(pitcher_disc_df, "p_swstr_percent")
-    csw_ser    = _col(pitcher_disc_df, "csw")
+    # disc_df (custom endpoint): k_percent, bb_percent, whiff_percent
     k_ser      = _col(pitcher_disc_df, "k_percent")
     bb_ser     = _col(pitcher_disc_df, "bb_percent")
     whiff_ser  = _col(pitcher_disc_df, "whiff_percent")
@@ -758,14 +758,55 @@ def analyze_savant_pitcher(
                 entry["Team"] = _safe_str(m_row.get("Team"))
                 entry["Pos"]  = _safe_str(m_row.get("Pos"))
 
+        # ── Pitch arsenal ────────────────────────────────────────
+        pitches = []
+        if pitcher_arsenal_df is not None and not pitcher_arsenal_df.empty:
+            matched_a = fuzzy_match_player(name, pitcher_arsenal_df, "Name")
+            if matched_a:
+                p_rows = pitcher_arsenal_df[pitcher_arsenal_df["Name"] == matched_a]
+                # Build velocity lookup from vel_df if available
+                vel_row = None
+                if pitcher_vel_df is not None and not pitcher_vel_df.empty:
+                    matched_v = fuzzy_match_player(name, pitcher_vel_df, "Name")
+                    if matched_v:
+                        vel_row = pitcher_vel_df[pitcher_vel_df["Name"] == matched_v].iloc[0].to_dict()
+                for _, pr in p_rows.sort_values("pitch_usage", ascending=False).iterrows():
+                    pt = str(pr.get("pitch_type", "")).upper()
+                    velo_col = _PITCH_TYPE_VEL_COL.get(pt)
+                    velo = None
+                    if vel_row and velo_col and velo_col in vel_row:
+                        v = vel_row[velo_col]
+                        if v is not None:
+                            try:
+                                vf = float(v)
+                                velo = None if np.isnan(vf) else round(vf, 1)
+                            except (ValueError, TypeError):
+                                pass
+                    def _f(col):
+                        val = pr.get(col)
+                        if val is None: return None
+                        try:
+                            f = float(val)
+                            return None if np.isnan(f) else round(f, 1)
+                        except (ValueError, TypeError):
+                            return None
+                    pitches.append({
+                        "name":   str(pr.get("pitch_name", pt)),
+                        "type":   pt,
+                        "velo":   velo,
+                        "usage":  _f("pitch_usage"),
+                        "rv100":  _f("run_value_per_100"),
+                        "whiff":  _f("whiff_percent"),
+                    })
+                if pitches:
+                    entry["found"] = True
+
         if not entry["found"]:
             results.append(entry)
             continue
 
         # ── Raw values ──────────────────────────────────────────
         # from disc_df (custom endpoint)
-        swstr = fget(pd_row, "p_swstr_percent")
-        csw   = fget(pd_row, "csw")
         k_pct = fget(pd_row, "k_percent")
         bb_pct= fget(pd_row, "bb_percent")
         whiff = fget(pd_row, "whiff_percent")
@@ -783,8 +824,6 @@ def analyze_savant_pitcher(
             return None if np.isnan(r) else round(float(r), 1)
 
         savant_pr = {
-            "SwStr%":  _safe_pr(swstr, swstr_ser),
-            "CSW%":    _safe_pr(csw,   csw_ser),
             "K%":      _safe_pr(k_pct, k_ser),
             "Whiff%":  _safe_pr(whiff, whiff_ser),
             "BB%↓":    _safe_pr(bb_pct, bb_ser,  lower=True),
@@ -796,8 +835,6 @@ def analyze_savant_pitcher(
         }
 
         entry.update({
-            "swstr": None if np.isnan(swstr) else swstr,
-            "csw":   None if np.isnan(csw)   else csw,
             "k_pct": None if np.isnan(k_pct) else k_pct,
             "bb_pct":None if np.isnan(bb_pct) else bb_pct,
             "whiff": None if np.isnan(whiff) else whiff,
@@ -807,26 +844,28 @@ def analyze_savant_pitcher(
             "xwoba": None if np.isnan(xwoba) else xwoba,
             "xba":   None if np.isnan(xba)   else xba,
             "savant_pr": savant_pr,
+            "pitches":   pitches,
         })
 
         # ── Verdicts ─────────────────────────────────────────────
         verdicts = {}
 
-        # SO (三振)：SwStr% 為核心信號
-        swstr_pr_v = savant_pr.get("SwStr%")
-        if swstr_pr_v is not None:
-            if swstr_pr_v >= 70:
-                reasons = [f"SwStr% PR={swstr_pr_v:.0f}，揮空能力強 → 三振率可持續"]
-                csw_pr_v = savant_pr.get("CSW%")
-                if csw_pr_v is not None and csw_pr_v >= 65:
-                    reasons.append(f"CSW% PR={csw_pr_v:.0f}，好球拿取能力佳")
+        # SO (三振)：Whiff% 為主要信號（SwStr%/CSW% Savant 未提供）
+        k_pr_v     = savant_pr.get("K%")
+        whiff_pr_v = savant_pr.get("Whiff%")
+        if k_pr_v is not None or whiff_pr_v is not None:
+            reasons = []
+            if k_pr_v is not None:
+                reasons.append(f"K% PR={k_pr_v:.0f}，三振率{'高' if k_pr_v >= 65 else '中等' if k_pr_v >= 40 else '偏低'}")
+            if whiff_pr_v is not None:
+                reasons.append(f"Whiff% PR={whiff_pr_v:.0f}，揮空能力{'強' if whiff_pr_v >= 65 else '中等' if whiff_pr_v >= 40 else '弱'}")
+            avg_k = np.nanmean([v for v in [k_pr_v, whiff_pr_v] if v is not None])
+            if avg_k >= 65:
                 verdicts["SO"] = make_verdict("up", reasons)
-            elif swstr_pr_v <= 35:
-                verdicts["SO"] = make_verdict("down", [
-                    f"SwStr% PR={swstr_pr_v:.0f}，揮空能力偏低 → 三振率難以維持"
-                ])
+            elif avg_k <= 35:
+                verdicts["SO"] = make_verdict("down", reasons)
             else:
-                verdicts["SO"] = make_verdict("hold", [f"SwStr% PR={swstr_pr_v:.0f}，三振能力中等"])
+                verdicts["SO"] = make_verdict("hold", reasons)
 
         # BB (保送)：BB% 控球能力
         bb_pr_v = savant_pr.get("BB%↓")
@@ -857,15 +896,18 @@ def analyze_savant_pitcher(
                 verdicts["ERA"] = make_verdict("hold", reasons)
 
         # ── Summary ──────────────────────────────────────────────
-        if swstr_pr_v is not None:
-            if swstr_pr_v >= 70:
-                summary = f"SwStr% PR={swstr_pr_v:.0f}，揮空能力強，三振具有持續性。"
-            elif swstr_pr_v <= 35:
-                summary = f"SwStr% PR={swstr_pr_v:.0f}，揮空能力弱，三振數據可能回落。"
+        if k_pr_v is not None and whiff_pr_v is not None:
+            avg_k = (k_pr_v + whiff_pr_v) / 2
+            if avg_k >= 65:
+                summary = f"K% PR={k_pr_v:.0f}、Whiff% PR={whiff_pr_v:.0f}，三振能力強，具有持續性。"
+            elif avg_k <= 35:
+                summary = f"K% PR={k_pr_v:.0f}、Whiff% PR={whiff_pr_v:.0f}，三振能力偏弱，需留意。"
             else:
-                summary = f"SwStr% PR={swstr_pr_v:.0f}，各項指標中等，維持觀望。"
+                summary = f"K% PR={k_pr_v:.0f}、Whiff% PR={whiff_pr_v:.0f}，各項指標中等，維持觀望。"
+        elif k_pr_v is not None:
+            summary = f"K% PR={k_pr_v:.0f}，三振能力{'良好' if k_pr_v >= 65 else '中等' if k_pr_v >= 40 else '偏弱'}。"
         else:
-            summary = "SwStr% 數據不足，建議觀察出賽數增加後再判斷。"
+            summary = "三振數據不足，建議觀察出賽數增加後再判斷。"
 
         entry["verdicts"] = verdicts
         entry["summary"]  = summary

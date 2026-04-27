@@ -587,6 +587,88 @@ def get_savant_pitcher_expected(year: int = None) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+_PITCH_VEL_SELECTIONS = (
+    "ff_avg_speed,si_avg_speed,fc_avg_speed,"
+    "sl_avg_speed,st_avg_speed,ch_avg_speed,"
+    "cu_avg_speed,fs_avg_speed,sv_avg_speed,kn_avg_speed"
+)
+
+# pitch_type code → velocity column in custom leaderboard
+_PITCH_TYPE_VEL_COL: dict[str, str] = {
+    "FF": "ff_avg_speed", "FA": "ff_avg_speed",
+    "SI": "si_avg_speed", "FT": "si_avg_speed",
+    "FC": "fc_avg_speed",
+    "SL": "sl_avg_speed",
+    "ST": "st_avg_speed",
+    "CH": "ch_avg_speed",
+    "CU": "cu_avg_speed", "KC": "cu_avg_speed",
+    "FS": "fs_avg_speed", "FO": "fs_avg_speed",
+    "SV": "sv_avg_speed",
+    "KN": "kn_avg_speed",
+}
+
+
+def get_savant_pitcher_arsenal(year: int = None) -> pd.DataFrame:
+    """從 Savant pitch-arsenal-stats 取得每球種的 run value/100、使用率、Whiff% 等。
+    回傳 per-pitch 格式（每行為一個投手的一個球種）。
+    """
+    if year is None:
+        year = datetime.now().year
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/pitch-arsenal-stats"
+            f"?type=pitcher&pitchType=&year={yr}&min=1&csv=true"
+        )
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        df = _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
+        logger.info("Savant pitcher arsenal %d: %d rows", yr, len(df))
+        return df
+
+    try:
+        df = _fetch(year)
+        if len(df) < 30:
+            df_prev = _fetch(year - 1)
+            existing = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing)]], ignore_index=True)
+        return df
+    except Exception as e:
+        logger.error("Savant pitcher arsenal failed: %s", e)
+        return pd.DataFrame()
+
+
+def get_savant_pitcher_velocity(year: int = None) -> pd.DataFrame:
+    """從 Savant custom leaderboard 取得每球種平均球速（ff/si/fc/sl/st/ch/cu/fs/sv/kn）。
+    每位投手一行，各球種球速為獨立欄位。
+    """
+    if year is None:
+        year = datetime.now().year
+
+    def _fetch(yr):
+        url = (
+            f"https://baseballsavant.mlb.com/leaderboard/custom"
+            f"?type=pitcher&year={yr}&min=1"
+            f"&selections={_PITCH_VEL_SELECTIONS}&csv=true"
+        )
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        df = _resolve_name_col(pd.read_csv(io.StringIO(resp.text)))
+        logger.info("Savant pitcher velocity %d: %d rows", yr, len(df))
+        return df
+
+    try:
+        df = _fetch(year)
+        if len(df) < 30:
+            df_prev = _fetch(year - 1)
+            existing = set(df["Name"].dropna()) if "Name" in df.columns else set()
+            df = pd.concat([df, df_prev[~df_prev["Name"].isin(existing)]], ignore_index=True)
+        return df
+    except Exception as e:
+        logger.error("Savant pitcher velocity failed: %s", e)
+        return pd.DataFrame()
+
+
 def get_savant_bat_tracking(year: int = None, min_swings: int = 100) -> pd.DataFrame:
     """從 Savant 取得揮棒力學數據（avg_bat_speed, squared_up, blast, whiff 等）"""
     if year is None:
