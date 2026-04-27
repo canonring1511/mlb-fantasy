@@ -266,19 +266,22 @@ function PitchArsenalTable({ pitches }) {
               <th className="py-1.5 px-2 text-right font-medium">使用%</th>
               <th className="py-1.5 px-2 text-right font-medium">球速</th>
               <th className="py-1.5 px-2 text-right font-medium">RV/100</th>
+              <th className="py-1.5 px-2 text-right font-medium">PR</th>
               <th className="py-1.5 px-2 text-right font-medium">Whiff%</th>
             </tr>
           </thead>
           <tbody>
             {pitches.map((p, i) => {
               const rv = p.rv100
+              // Positive = good for pitcher (already flipped from API convention)
               const rvColor = rv == null
                 ? 'text-slate-400'
-                : rv <= -1.5 ? 'text-green-400 font-semibold'
-                : rv <= -0.5 ? 'text-green-300'
-                : rv >= 1.5  ? 'text-red-400 font-semibold'
-                : rv >= 0.5  ? 'text-orange-400'
+                : rv >= 1.5  ? 'text-green-400 font-semibold'
+                : rv >= 0.5  ? 'text-green-300'
+                : rv <= -1.5 ? 'text-red-400 font-semibold'
+                : rv <= -0.5 ? 'text-orange-400'
                 : 'text-slate-300'
+              const rvPr = p.rv_pr
               return (
                 <tr key={i} className="border-t border-slate-700/60">
                   <td className="py-1.5 px-2 text-slate-200">{p.name}</td>
@@ -291,6 +294,9 @@ function PitchArsenalTable({ pitches }) {
                   <td className={`py-1.5 px-2 text-right font-mono ${rvColor}`}>
                     {rv != null ? (rv > 0 ? '+' : '') + rv.toFixed(1) : '—'}
                   </td>
+                  <td className={`py-1.5 px-2 text-right font-mono font-bold ${rvPr != null ? prTextColor(rvPr) : 'text-slate-600'}`}>
+                    {rvPr != null ? rvPr.toFixed(0) : '—'}
+                  </td>
                   <td className="py-1.5 px-2 text-right text-slate-300">
                     {p.whiff != null ? p.whiff.toFixed(1) + '%' : '—'}
                   </td>
@@ -300,7 +306,7 @@ function PitchArsenalTable({ pitches }) {
           </tbody>
         </table>
         <div className="px-2 py-1 bg-slate-700/20 text-[9px] text-slate-500">
-          RV/100 = 每100球得分價值（負值=對投手有利） · 球速 mph
+          RV/100：正值=對投手有利（越高越好） · PR：vs 同球種全聯盟投手 · 球速 mph
         </div>
       </div>
     </div>

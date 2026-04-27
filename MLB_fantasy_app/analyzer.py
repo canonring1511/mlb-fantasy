@@ -727,6 +727,28 @@ def analyze_savant_pitcher(
     xwoba_ser  = _col(pitcher_expected_df, "est_woba")
     xba_ser    = _col(pitcher_expected_df, "est_ba")
 
+    # Per-pitch-type RV/100 reference (sign flipped: positive = good for pitcher)
+    # Used to compute per-pitch PR. Falls back to all-pitch series if group too small.
+    _rv_by_type: dict[str, pd.Series] = {}
+    _rv_all_ser: pd.Series = pd.Series(dtype=float)
+    if pitcher_arsenal_df is not None and not pitcher_arsenal_df.empty and "run_value_per_100" in pitcher_arsenal_df.columns:
+        _rv_raw = pd.to_numeric(pitcher_arsenal_df["run_value_per_100"], errors="coerce")
+        _rv_all_ser = -_rv_raw  # flip: positive = good for pitcher
+        for _pt, _grp in pitcher_arsenal_df.groupby("pitch_type"):
+            _ser = -pd.to_numeric(_grp["run_value_per_100"], errors="coerce").dropna()
+            if len(_ser) >= 5:
+                _rv_by_type[str(_pt).upper()] = _ser.reset_index(drop=True)
+
+    def _rv_pr(rv100_flipped, pitch_type_code):
+        """Compute PR for a pitch's RV/100 (already sign-flipped, higher = better)."""
+        if rv100_flipped is None or np.isnan(float(rv100_flipped)):
+            return None
+        ser = _rv_by_type.get(pitch_type_code, _rv_all_ser if not _rv_all_ser.empty else None)
+        if ser is None:
+            return None
+        r = compute_pr(float(rv100_flipped), ser, lower_is_better=False)
+        return None if np.isnan(r) else round(float(r), 1)
+
     results = []
     for name in player_names:
         entry = {"name": name, "found": False}
@@ -790,12 +812,16 @@ def analyze_savant_pitcher(
                             return None if np.isnan(f) else round(f, 1)
                         except (ValueError, TypeError):
                             return None
+                    # Flip RV/100 sign: positive = good for pitcher
+                    rv_raw = _f("run_value_per_100")
+                    rv100  = None if rv_raw is None else round(-rv_raw, 1)
                     pitches.append({
                         "name":   str(pr.get("pitch_name", pt)),
                         "type":   pt,
                         "velo":   velo,
                         "usage":  _f("pitch_usage"),
-                        "rv100":  _f("run_value_per_100"),
+                        "rv100":  rv100,
+                        "rv_pr":  _rv_pr(rv100, pt),
                         "whiff":  _f("whiff_percent"),
                     })
                 if pitches:
