@@ -306,7 +306,7 @@ function PitchArsenalTable({ pitches }) {
           </tbody>
         </table>
         <div className="px-2 py-1 bg-slate-700/20 text-[9px] text-slate-500">
-          RV/100：正值=對投手有利（越高越好） · PR：vs 同球種全聯盟投手 · 球速 mph
+          RV/100：正值=好球路（壓制打者），負值=被打爆 · PR：vs 同球種全聯盟投手 · 球速 mph
         </div>
       </div>
     </div>
